@@ -1,0 +1,12 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/moves_menu" android:title="Moves" android:menuCategory="container">
+	    <menu>
+		    <item android:id="@+id/copy_moves_menu" android:title="Copy"/>
+		    <item android:id="@+id/paste_moves_menu" android:title="Paste"/>
+		    <item android:id="@+id/undo_all_menu" android:title="Undo all"/>
+		    <item android:id="@+id/restart_menu" android:title="Restart" android:icon="@drawable/ic_menu_refresh"/>
+	    </menu>
+    </item>
+    <item android:id="@+id/help_menu" android:title="Help" android:icon="@android:drawable/ic_menu_help"/>
+    <item android:id="@+id/back_menu" android:title="Back" android:icon="@drawable/ic_menu_back"/>
+</menu>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout android:layout_width="wrap_content" android:layout_height="wrap_content" xmlns:android="http://schemas.android.com/apk/res/android">
+	<TextView android:text="Level name" android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:id="@+id/levellabel"
+		android:textSize="20px"
+		android:layout_centerVertical="true"
+		android:layout_alignParentLeft="true"
+		android:layout_toLeftOf="@+id/levelmap"
+		/>
+	<com.mobilepearls.sokoban.SokobanMapView
+	   	android:id="@+id/levelmap"
+	    android:layout_width="50px"
+	    android:layout_height="50px"
+		android:layout_centerVertical="true"
+		android:layout_alignParentRight="true"
+	    />
+</RelativeLayout>
