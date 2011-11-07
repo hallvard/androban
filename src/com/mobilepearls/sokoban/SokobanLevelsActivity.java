@@ -5,7 +5,6 @@ import android.app.AlertDialog;
 import android.app.ListActivity;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,21 +18,23 @@ import com.mobilepearls.sokoban.io.Level;
 public class SokobanLevelsActivity extends ListActivity {
 
 	private class SokobanLevelsAdapter extends BaseAdapter {
+
 		private final Activity context;
+		private final int count;
 		private final SokobanLevels levels;
-		private final int maxLevel;
-		public SokobanLevelsAdapter(Activity context, SokobanLevels levels, int maxLevel) {
+
+		public SokobanLevelsAdapter(Activity context, SokobanLevels levels, int count) {
 			this.context = context;
 			this.levels = levels;
-			this.maxLevel = maxLevel;
+			this.count = count;
 		}
 		@Override
 		public int getCount() {
-			return (maxLevel >= 0 ? maxLevel : levels.getLevelCount());
+			return (count > 0 ? count : levels.getLevelCount());
 		}
 		@Override
 		public Object getItem(int position) {
-			return levels.getLevel(position);
+			return levels.getLevel(reverse ? getCount() - 1 - position : position);
 		}
 		@Override
 		public long getItemId(int position) {
@@ -48,15 +49,46 @@ public class SokobanLevelsActivity extends ListActivity {
 			TextView textView = (TextView) useView.findViewById(R.id.levellabel);
 			SokobanMapView mapView = (SokobanMapView) useView.findViewById(R.id.levelmap);
 			Level level = (Level) getItem(position);
-			textView.setText(level.getName());
-			mapView.setSokobanMap(level);
+			String label = level.getName();
+			if (level.getDiamondsLeft() == 0) {
+				CharSequence moves = level.getMoves();
+				label = label + " - " + SokobanGameState.getMoveCount(moves, true, false) + "/" + SokobanGameState.getMoveCount(moves, false, true);
+			} else if (level.hasMoves()) {
+				label = label + "  (" + level.getDiamondsLeft() + "left)";
+			}
+			textView.setText(label);
+			Level initialLevel = level.getInitialLevel();
+			mapView.setSokobanMap(showInitialLevel && initialLevel != null ? initialLevel : level);
 			return useView;
 		}
 	}
 
+	private final boolean reverse = true;
+	private final boolean showInitialLevel = true;
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		onUpdate();
+	}
+
+	@Override
+	protected void onListItemClick(ListView listView, View view, final int position, long id) {
+		SokobanLevels sokobanLevels = ((SokobanLevelsAdapter) listView.getAdapter()).levels;
+		Level level = (Level) listView.getAdapter().getItem(position);
+		int levelIndex = sokobanLevels.getLevelIndex(level);
+		Intent intent = SokobanGameActivity.createSokobanLevelIntent(sokobanLevels, levelIndex);
+		intent.setClass(this, SokobanGameActivity.class);
+		startActivity(intent);
+	}
+
+	@Override
+	protected void onResume() {
+		super.onResume();
+		onUpdate();
+	}
+
+	private void onUpdate() {
 		Intent intent = getIntent();
 		String levelSet = "microban";
 		if (intent != null && intent.getExtras() != null) {
@@ -67,11 +99,13 @@ public class SokobanLevelsActivity extends ListActivity {
 		}
 		SokobanLevels sokobanLevels = SokobanLevels.getSokobanLevels(levelSet);
 		try {
-			sokobanLevels.readLevels(getAssets());
-			SharedPreferences prefs = getSharedPreferences(SokobanLevelsListActivity.SHARED_PREFS_NAME, MODE_PRIVATE);
-			final String maxLevelNamePref = SokobanLevelsListActivity.getMaxLevelPrefName(sokobanLevels);
-			final int maxLevel = Math.min(prefs.getInt(maxLevelNamePref, -1), sokobanLevels.getLevelCount());
-			setListAdapter(new SokobanLevelsAdapter(this, sokobanLevels, maxLevel));
+			if (sokobanLevels.getLevelCount() == 0 || sokobanLevels.getLevel(0) == null) {
+				sokobanLevels.readLevels(this);
+			}
+			//			SharedPreferences prefs = getSharedPreferences(SokobanLevelsListActivity.SHARED_PREFS_NAME, MODE_PRIVATE);
+			//			final String maxLevelNamePref = SokobanLevelsListActivity.getMaxLevelPrefName(sokobanLevels);
+			int maxLevel = sokobanLevels.getIndexOfLastRemainingLevel();
+			setListAdapter(new SokobanLevelsAdapter(this, sokobanLevels, maxLevel + 1));
 		} catch (Exception e) {
 			AlertDialog.Builder alert = new AlertDialog.Builder(this);
 			alert.setCancelable(false);
@@ -85,16 +119,5 @@ public class SokobanLevelsActivity extends ListActivity {
 			});
 			alert.show();
 		}
-	}
-
-	@Override
-	protected void onListItemClick(ListView listView, View view, final int levelIndex, long id) {
-		Intent intent = new Intent();
-		SokobanLevels sokobanLevels = ((SokobanLevelsAdapter) listView.getAdapter()).levels;
-		intent.putExtra(SokobanGameActivity.GAME_LEVEL_SET_EXTRA, sokobanLevels.getName());
-		intent.putExtra(SokobanGameActivity.GAME_LEVEL_INTENT_EXTRA, levelIndex);
-		intent.putExtra(SokobanGameActivity.SHOW_HELP_INTENT_EXTRA, true);
-		intent.setClass(this, SokobanGameActivity.class);
-		startActivity(intent);
 	}
 }

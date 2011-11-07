@@ -1,9 +1,15 @@
 package com.mobilepearls.sokoban;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-import android.content.res.AssetManager;
+import android.content.Context;
 
 import com.mobilepearls.sokoban.io.Level;
 import com.mobilepearls.sokoban.io.LevelIterator;
@@ -18,7 +24,11 @@ public class SokobanLevels {
 		levelMaps.add(new SokobanLevels("mas_sasquatch", "Mas Sasquatch", 50, "mas_sasquatch.sok"));
 		levelMaps.add(new SokobanLevels("sasquatch_iii", "Sasquatch III", 50, "sasquatch_iii.sok"));
 		levelMaps.add(new SokobanLevels("sasquatch_iv", "Sasquatch IV", 49, "sasquatch_iv.sok"));
-		levelMaps.add(new SokobanLevels("megasoft", "Megasoft", 500, "megasoft.sok"));
+		levelMaps.add(new SokobanLevels("megasoft1", "Megasoft 1", 100, "megasoft1.sok"));
+		levelMaps.add(new SokobanLevels("megasoft2", "Megasoft 2", 100, "megasoft2.sok"));
+		levelMaps.add(new SokobanLevels("megasoft3", "Megasoft 3", 100, "megasoft3.sok"));
+		levelMaps.add(new SokobanLevels("megasoft4", "Megasoft 4", 100, "megasoft4.sok"));
+		levelMaps.add(new SokobanLevels("megasoft5", "Megasoft 5", 100, "megasoft5.sok"));
 
 		levelMaps.add(new SokobanLevels("bernier", "Initial Trouble", 12, "http://sokobano.de/sets/bernier.zip"));
 		levelMaps.add(new SokobanLevels("minicosmos", "Minicosmos", 40, "http://sokobano.de/sets/minicosmos.zip"));
@@ -188,8 +198,8 @@ public class SokobanLevels {
 	}
 
 	private final String label;
-	private int levelCount = -1;
 
+	private int levelCount = -1;
 	private List<Level> levels = null;
 
 	private final String location;
@@ -207,6 +217,24 @@ public class SokobanLevels {
 		this.location = location;
 	}
 
+	public int getIndexOfLastRemainingLevel() {
+		for (int i = getLevelCount(); i > 0; i--) {
+			if (getLevel(i - 1).getDiamondsLeft() == 0) {
+				return i;
+			}
+		}
+		return 0;
+	}
+
+	public int getIndexOfRemainingLevel(int start) {
+		for (int i = start; i < getLevelCount(); i++) {
+			if (getLevel(i).getDiamondsLeft() > 0) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
 	public String getLabel() {
 		return label + (levelCount > 0 ? " - " + levelCount : "");
 	}
@@ -215,9 +243,9 @@ public class SokobanLevels {
 		return (levels != null && i < levels.size() ? levels.get(i) : null);
 	}
 
-	public Level getLevel(int i, AssetManager assets) {
+	public Level getLevel(int i, Context context) {
 		if (levels == null) {
-			readLevels(assets);
+			readLevels(context);
 		}
 		return (i < levels.size() ? levels.get(i) : null);
 	}
@@ -240,14 +268,38 @@ public class SokobanLevels {
 		return name;
 	}
 
-	public void readLevels(AssetManager assets) {
-		LevelIterator levels = new LevelIterator(getLocation(), assets);
-		while (levels.hasNext()) {
-			Level level = levels.next();
-			if (this.levels == null) {
-				this.levels = new ArrayList<Level>();
+	public String getSokobanLevelFileName(Level level, int count) {
+		return getName() + "_" + count + ".sok";
+	}
+
+	public void readLevels(Context context) {
+		LevelIterator it = new LevelIterator(getLocation(), context.getAssets());
+		int count = 0;
+		while (it.hasNext()) {
+			Level level = new Level(it.next());
+			count++;
+			try {
+				FileInputStream input = context.openFileInput(getSokobanLevelFileName(level, count));
+				level.read(new BufferedReader(new InputStreamReader(input)));
+			} catch (IOException e) {
+				// ignore
 			}
-			this.levels.add(level);
+			if (levels == null) {
+				levels = new ArrayList<Level>();
+			}
+			levels.add(level);
+		}
+	}
+
+	public void writeLevel(Level level, Context context) {
+		int count = levels.indexOf(level) + 1;
+		if (count > 0) {
+			try {
+				FileOutputStream output = context.openFileOutput(getSokobanLevelFileName(level, count), Context.MODE_PRIVATE);
+				level.write(new OutputStreamWriter(output), false);
+			} catch (IOException e) {
+				// ignore
+			}
 		}
 	}
 }

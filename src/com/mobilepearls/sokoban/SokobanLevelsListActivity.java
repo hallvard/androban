@@ -9,15 +9,15 @@ import android.widget.ListView;
 
 public class SokobanLevelsListActivity extends ListActivity {
 
-	private static final String MAX_LEVEL_NAME = "max_level";
-
-	public static final String SHARED_PREFS_NAME = "game_prefs";
-
-	public static String getMaxLevelPrefName(SokobanLevels sokobanLevels) {
-		int levelSetIndex = SokobanLevels.getSokobanLevelsIndex(sokobanLevels);
-		// historical compat: first level == no suffix, levels 1-4 == index as suffix, the rest use name
-		return MAX_LEVEL_NAME + (levelSetIndex == 0 ? "" : "_" + (levelSetIndex < 5 ? String.valueOf(levelSetIndex) : sokobanLevels.getName()));
-	}
+	//	private static final String MAX_LEVEL_NAME = "max_level";
+	//
+	//	public static final String SHARED_PREFS_NAME = "game_prefs";
+	//
+	//	public static String getMaxLevelPrefName(SokobanLevels sokobanLevels) {
+	//		int levelSetIndex = SokobanLevels.getSokobanLevelsIndex(sokobanLevels);
+	//		// historical compat: first level == no suffix, levels 1-4 == index as suffix, the rest use name
+	//		return MAX_LEVEL_NAME + (levelSetIndex == 0 ? "" : "_" + (levelSetIndex < 5 ? String.valueOf(levelSetIndex) : sokobanLevels.getName()));
+	//	}
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -40,8 +40,7 @@ public class SokobanLevelsListActivity extends ListActivity {
 		//			intent.setClass(this, SokobanGameActivity.class);
 		//			startActivity(intent);
 		//		} else {
-		Intent intent = new Intent();
-		intent.putExtra(SokobanGameActivity.GAME_LEVEL_SET_EXTRA, sokobanLevels.getName());
+		Intent intent = SokobanGameActivity.createSokobanLevelIntent(sokobanLevels, -1);
 		intent.setClass(this, SokobanLevelsActivity.class);
 		startActivity(intent);
 		//		}

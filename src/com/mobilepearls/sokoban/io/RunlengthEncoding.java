@@ -2,15 +2,25 @@ package com.mobilepearls.sokoban.io;
 
 public class RunlengthEncoding {
 
-	public static String decode(String s) {
+	public static CharSequence decode(CharSequence s) {
+		return decode(s, 0, -1);
+	}
+
+	public static CharSequence decode(CharSequence s, int start, int end) {
+		if (start < 0) {
+			start = s.length() + start;
+		}
+		if (end < 0) {
+			end = s.length() + end + 1;
+		}
 		int repeat = 0;
 		StringBuilder result = null;
-		for (int i = 0; i < s.length(); i++) {
+		for (int i = 0; i < end; i++) {
 			char c = s.charAt(i);
 			if (Character.isDigit(c)) {
 				repeat = repeat * 10 + c - '0';
 				if (result == null) {
-					result = new StringBuilder(s.substring(0, i));
+					result = new StringBuilder(s.subSequence(0, i));
 				}
 			} else if (result != null) {
 				do {
@@ -21,14 +31,24 @@ public class RunlengthEncoding {
 				repeat = 0;
 			}
 		}
-		return (result != null ? result.toString() : s);
+		return (result != null ? result : s);
 	}
 
-	public static String encode(String s) {
+	public static CharSequence encode(CharSequence s) {
+		return encode(s, 0, -1);
+	}
+
+	public static CharSequence encode(CharSequence s, int start, int end) {
+		if (start < 0) {
+			start = s.length() + start;
+		}
+		if (end < 0) {
+			end = s.length() + end + 1;
+		}
 		char lastChar = '\0';
 		int count = 1;
 		StringBuilder buffer = new StringBuilder();
-		for (int i = 0; i < s.length(); i++) {
+		for (int i = start; i < end; i++) {
 			char c = s.charAt(i);
 			if (c == lastChar) {
 				count++;
@@ -45,6 +65,6 @@ public class RunlengthEncoding {
 			buffer.append(count);
 		}
 		buffer.append(lastChar);
-		return buffer.toString();
+		return buffer;
 	}
 }

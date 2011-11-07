@@ -28,6 +28,35 @@ public class SokobanGameState implements SokobanMap, Serializable {
 		return null;
 	}
 
+	public static int getDiamondsLeft(SokobanMap map) {
+		int count = 0;
+		for (int x = 0; x < map.getWidth(); x++) {
+			for (int y = 0; y < map.getHeight(); y++) {
+				char c = map.getItemAt(x, y);
+				if (c == CHAR_DIAMOND_ON_FLOOR)
+					count++;
+			}
+		}
+		return count;
+	}
+
+	public static int getMoveCount(CharSequence moves, boolean includeMoves, boolean includePushes) {
+		int count = 0;
+		int n = 0;
+		for (int i = 0; i < moves.length(); i++) {
+			char c = moves.charAt(i);
+			if (Character.isDigit(c)) {
+				n = 10 * n + (c - '0');
+			} else {
+				if ((includeMoves && Character.isLowerCase(c)) || (includePushes && Character.isUpperCase(c))) {
+					count += (n > 0 ? n : 1);
+				}
+				n = 0;
+			}
+		}
+		return count;
+	}
+
 	public static int[] getPlayerPosition(SokobanMap map, int[] position) {
 		for (int x = 0; x < map.getWidth(); x++) {
 			for (int y = 0; y < map.getHeight(); y++) {
@@ -94,7 +123,7 @@ public class SokobanGameState implements SokobanMap, Serializable {
 
 	private transient final Level currentLevel;
 
-	private char[][] map;
+	private final char[][] map;
 
 	private transient final int[] playerPosition = new int[2];
 
@@ -103,7 +132,8 @@ public class SokobanGameState implements SokobanMap, Serializable {
 
 	public SokobanGameState(Level level) {
 		currentLevel = level;
-		restart();
+		undos.append(level.getMoves());
+		map = toCharMatrix(currentLevel);
 	}
 
 	public boolean canUndo() {
@@ -249,11 +279,7 @@ public class SokobanGameState implements SokobanMap, Serializable {
 	}
 
 	public boolean isDone() {
-		for (int x = 0; x < getWidth(); x++)
-			for (int y = 0; y < getHeight(); y++)
-				if (getItemAt(x, y) == CHAR_DIAMOND_ON_FLOOR)
-					return false;
-		return true;
+		return getDiamondsLeft(this) == 0;
 	}
 
 	public boolean performUndo() {
@@ -282,8 +308,9 @@ public class SokobanGameState implements SokobanMap, Serializable {
 	}
 
 	public void restart() {
-		map = toCharMatrix(currentLevel);
-		undos.setLength(0);
+		while (undos.length() > 0) {
+			performUndo();
+		}
 	}
 
 	public char setItemAt(int x, int y, char value) {

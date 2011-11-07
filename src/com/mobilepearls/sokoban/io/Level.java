@@ -2,6 +2,8 @@ package com.mobilepearls.sokoban.io;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -10,41 +12,127 @@ import java.util.List;
 import com.mobilepearls.sokoban.SokobanGameState;
 import com.mobilepearls.sokoban.SokobanMap;
 
-public class Level implements SokobanMap, Iterable<String>  {
+public class Level implements SokobanMap, Iterable<CharSequence>  {
 
 	private final static String LEVEL_CHARS = CHARS_ALL, EXTRA_CHARS = "-_";
 	private final static String NAME_KEY = "Title";
 	private final static char SPLIT_CHAR = '|';
 
-	private List<String> lines = null;
+	private int diamondsLeft = -1;
+
+	private Level initialLevel = null;
+
+	private List<CharSequence> lines = null;
 	private StringBuilder moves = null;
 
 	private String name = null;
 
 	private int width = -1;
+
+	public Level() {
+		// nothing to do
+	}
+
+	public Level(Level initialLevel) {
+		this.initialLevel = initialLevel;
+	}
+
+	public void addLevelLine(CharSequence line) {
+		if (isLevelLine(line, 1.0f, false)) {
+			line = RunlengthEncoding.decode(line);
+			if (lines == null) {
+				lines = new ArrayList<CharSequence>();
+			}
+			lines.add(line);
+			width = Math.max(width, line.length());
+		}
+	}
+
+	public void appendMoves(CharSequence line) {
+		if (isMovesLine(line, 1.0f)) {
+			line = RunlengthEncoding.decode(line);
+			if (moves == null) {
+				moves = new StringBuilder();
+			}
+			moves.append(line);
+		}
+	}
+
+	public void clearLevelLines() {
+		this.lines = null;
+		diamondsLeft = -1;
+	}
+
+	public int getDiamondsLeft() {
+		if (diamondsLeft < 0) {
+			diamondsLeft = SokobanGameState.getDiamondsLeft(this);
+		}
+		return diamondsLeft;
+	}
+
 	public int getHeight() {
-		return lines.size();
+		return (lines != null ? lines.size() : (initialLevel != null ? initialLevel.getHeight() : 0));
+	}
+
+	public Level getInitialLevel() {
+		return initialLevel;
 	}
 
 	@Override
 	public char getItemAt(int x, int y) {
-		String line = lines.get(y);
-		char c = x < line.length() ? line.charAt(x) : CHAR_OUTSIDE;
-		return (LEVEL_CHARS.indexOf(c) >= 0 ? c : CHAR_OUTSIDE);
+		if (lines != null) {
+			CharSequence line = lines.get(y);
+			if (x >= line.length()) {
+				return CHAR_OUTSIDE;
+			}
+			char c = line.charAt(x);
+			if (LEVEL_CHARS.indexOf(c) >= 0) {
+				//				if (c == CHAR_FLOOR) {
+				//					for (int i = x - 1; i >= 0; i--) {
+				//						if (line.charAt(i) != CHAR_FLOOR) {
+				//							for (int j = x + 1; j < line.length(); j++) {
+				//								if (line.charAt(j) != CHAR_FLOOR) {
+				//									return c;
+				//								}
+				//							}
+				//						}
+				//					}
+				//					return CHAR_OUTSIDE;
+				//				}
+				return c;
+			}
+			return CHAR_OUTSIDE;
+		} else if (initialLevel != null) {
+			return initialLevel.getItemAt(x, y);
+		}
+		return CHAR_OUTSIDE;
 	}
-	public String getMoves() {
-		return (moves != null ? moves.toString() : "");
+
+	public CharSequence getMoves() {
+		return getMoves(true);
+	}
+
+	private CharSequence getMoves(boolean includeInitialLevel) {
+		return (moves != null ? moves : (initialLevel != null && includeInitialLevel ? initialLevel.getMoves() : ""));
 	}
 
 	public String getName() {
-		return name;
+		return (name != null ? name : (initialLevel != null ? initialLevel.getName() : null));
 	}
 
 	public int getWidth() {
-		return width;
+		return (width >= 0 ? width : (initialLevel != null ? initialLevel.getWidth() : -1));
 	}
 
-	protected boolean isLevelLine(String line, float factor, boolean allowSeparator) {
+	public boolean hasMoves() {
+		return hasMoves(true);
+	}
+
+	private boolean hasMoves(boolean includeInitialLevel) {
+		return (moves != null ? moves.length() > 0 : (initialLevel != null && includeInitialLevel ? initialLevel.hasMoves() : false));
+	}
+
+	protected boolean isLevelLine(CharSequence line, float factor, boolean allowSeparator) {
 		int count = 0, otherCount = 0;
 		for (int i = 0; i < line.length(); i++) {
 			char c = line.charAt(i);
@@ -52,6 +140,7 @@ public class Level implements SokobanMap, Iterable<String>  {
 			if (LEVEL_CHARS.indexOf(c) >= 0 || EXTRA_CHARS.indexOf(c) >= 0) {
 				count++;
 			} else if (isLast) {
+				// nothing to do
 			} else if (Character.isDigit(c) || (allowSeparator && c == SPLIT_CHAR)) {
 				otherCount++;
 			}
@@ -59,14 +148,15 @@ public class Level implements SokobanMap, Iterable<String>  {
 		return (count + otherCount) >= line.length() * factor && count > otherCount;
 	}
 
-	protected boolean isMovesLine(String line, float factor) {
+	protected boolean isMovesLine(CharSequence line, float factor) {
 		int count = 0, otherCount = 0;
 		for (int i = 0; i < line.length(); i++) {
 			char c = line.charAt(i);
 			boolean isLast = (i == line.length() - 1);
-			if (SokobanGameState.directionFor(c, SokobanGameState.DIRECTIONS_CHAR_POS) != null) {
+			if (SokobanGameState.directionFor(Character.toLowerCase(c), SokobanGameState.DIRECTIONS_CHAR_POS) != null) {
 				count++;
 			} else if (isLast) {
+				// nothing to do
 			} else if (Character.isDigit(c)) {
 				otherCount++;
 			}
@@ -76,14 +166,19 @@ public class Level implements SokobanMap, Iterable<String>  {
 
 	//
 
-	public Iterator<String> iterator() {
-		return (lines != null ? lines : Collections.<String>emptyList()).iterator() ;
+	public Iterator<CharSequence> iterator() {
+		return iterator(true);
 	}
 
-	public void read(Level level, BufferedReader bufferedReader) throws IOException {
+	private Iterator<CharSequence> iterator(boolean includeInitialLevel) {
+		return (lines != null ? lines : (initialLevel != null && includeInitialLevel ? initialLevel : Collections.<CharSequence>emptyList())).iterator();
+	}
+
+	public void read(BufferedReader bufferedReader) throws IOException {
 		String line = null;
 		// we allow a sequence of invalid lines (e.g. natural language),
 		// followed by a sequence of valid lines
+		String lastNonLine = null;
 		while ((line = bufferedReader.readLine()) != null) {
 			// if line contains : it is meta data
 			int pos = line.indexOf(':');
@@ -97,32 +192,46 @@ public class Level implements SokobanMap, Iterable<String>  {
 					setName(value);
 				}
 			} else if (line.trim().length() == 0) {
-				if (level.iterator().hasNext()) {
+				if (iterator().hasNext()) {
 					break;
 				}
 			} else if (isLevelLine(line, 1.0f, false)) {
-				if (lines == null) {
-					lines = new ArrayList<String>();
-				}
 				int start = 0;
 				while (start < line.length()) {
 					int end = line.indexOf(SPLIT_CHAR, start);
 					if (end < 0) {
 						end = line.length();
 					}
-					String newLine = RunlengthEncoding.decode(line.substring(start, end));
-					lines.add(newLine);
-					width = Math.max(width, newLine.length());
+					addLevelLine(line.substring(start, end));
 					start = end + 1;
 				}
 			} else if (isMovesLine(line, 1.0f)) {
-				if (this.moves == null) {
-					this.moves = new StringBuilder();
-				}
-				this.moves.append(RunlengthEncoding.decode(moves.toString()));
-			} else if (line.startsWith(";") && level.getName() == null) {
-				level.setName(line.substring(1).trim());
+				appendMoves(line);
+			} else if (line.startsWith(";") && getName() == null) {
+				setName(line.substring(1).trim());
+			} else {
+				lastNonLine = line;
 			}
+		}
+	}
+
+	public void setLevelLines(SokobanMap map) {
+		clearLevelLines();
+		if (map != null) {
+			char[] line = new char[map.getWidth()];
+			for (int y = 0; y < map.getHeight(); y++) {
+				for (int x = 0; x < map.getWidth(); x++) {
+					line[x] = map.getItemAt(x, y);
+				}
+				addLevelLine(new String(line));
+			}
+		}
+	}
+
+	public void setMoves(CharSequence line) {
+		this.moves = null;
+		if (line != null) {
+			appendMoves(line);
 		}
 	}
 
@@ -134,18 +243,30 @@ public class Level implements SokobanMap, Iterable<String>  {
 
 	@Override
 	public String toString() {
-		StringBuilder buffer = new StringBuilder();
-		Iterator<String> it = this.iterator();
-		if (name != null) {
-			buffer.append(NAME_KEY);
-			buffer.append(": ");
-			buffer.append(name);
-			buffer.append("\n");
+		StringWriter writer = new StringWriter();
+		try {
+			write(writer, true);
+		} catch (IOException e) {
+			// ignore
 		}
+		return writer.toString();
+	}
+
+	public void write(Writer writer, boolean includeInitialLevel) throws IOException {
+		if (getName() != null) {
+			writer.write(NAME_KEY);
+			writer.write(": ");
+			writer.write(getName());
+			writer.write("\n");
+		}
+		Iterator<CharSequence> it = this.iterator(includeInitialLevel);
 		while (it.hasNext()) {
-			buffer.append(it.next());
-			buffer.append("\n");
+			writer.write(it.next().toString());
+			writer.write("\n");
 		}
-		return buffer.toString();
+		CharSequence moves = getMoves(includeInitialLevel);
+		if (moves != null && moves.length() > 0) {
+			writer.write(RunlengthEncoding.encode(moves).toString());
+		}
 	}
 }

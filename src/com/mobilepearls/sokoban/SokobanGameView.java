@@ -5,8 +5,6 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
 import android.os.Handler;
 import android.os.Vibrator;
 import android.util.AttributeSet;
@@ -226,40 +224,38 @@ public class SokobanGameView extends SokobanMapView {
 		}
 		invalidate();
 
-		SharedPreferences prefs = getContext().getSharedPreferences(SokobanMenuActivity.SHARED_PREFS_NAME,
-				Context.MODE_PRIVATE);
-		final String maxLevelPrefName = SokobanLevelsListActivity.getMaxLevelPrefName(levelSet);
-		int currentMaxLevel = prefs.getInt(maxLevelPrefName, 1);
+		//		SharedPreferences prefs = getContext().getSharedPreferences(SokobanMenuActivity.SHARED_PREFS_NAME,
+		//				Context.MODE_PRIVATE);
+		//		final String maxLevelPrefName = SokobanLevelsListActivity.getMaxLevelPrefName(levelSet);
+		//		int currentMaxLevel = prefs.getInt(maxLevelPrefName, 1);
 		int levelIndex = levelSet.getLevelIndex(getSokobanGame().getCurrentLevel());
-		int newMaxLevel = levelIndex + 2;
-		String message = "Level already cleared - no new level unlocked!";
-		boolean levelSetDone = false;
-		if (newMaxLevel > currentMaxLevel) {
-			if (newMaxLevel - 1 >= levelSet.getLevelCount()) {
-				newMaxLevel--;
-				message = "You completed all levels!";
-				levelSetDone = true;
-			} else {
-				Editor editor = prefs.edit();
-				editor.putInt(maxLevelPrefName, newMaxLevel);
-				editor.commit();
-				message = "New level unlocked!";
-			}
+		final int nextLevelIndex = Math.max(levelSet.getIndexOfRemainingLevel(levelIndex + 1), levelSet.getIndexOfRemainingLevel(0));
+		//		int newMaxLevel = levelIndex + 2;
+		String message = "Level cleared - opening next level!";
+		if (nextLevelIndex < levelIndex) {
+			message = "Level cleared - opening previously unfinished level";
+		} else if (nextLevelIndex >= levelSet.getLevelCount()) {
+			message = "You completed the last level!";
+			//			levelSetDone = true;
+			//			} else {
+			//				Editor editor = prefs.edit();
+			//				editor.putInt(maxLevelPrefName, newMaxLevel);
+			//				editor.commit();
+			//				message = "New level unlocked!";
+			//			}
 		}
 		AlertDialog.Builder alert = new AlertDialog.Builder(getContext());
 		alert.setCancelable(false);
 		alert.setMessage(message);
 		alert.setTitle("Congratulations");
-		final int levelDestination = newMaxLevel - 1; // newMaxLevel was one based
-		final boolean levelSetDoneFinal = levelSetDone;
+		//		final int levelDestination = nextLevelIndex;
+		//		final boolean levelSetDoneFinal = levelSetDone;
 		alert.setPositiveButton("Continue", new DialogInterface.OnClickListener() {
 			@Override
 			public void onClick(DialogInterface dialog, int which) {
 				((Activity) getContext()).finish();
-				if (! levelSetDoneFinal) {
-					Intent intent = new Intent();
-					intent.putExtra(SokobanGameActivity.GAME_LEVEL_SET_EXTRA, levelSet.getName());
-					intent.putExtra(SokobanGameActivity.GAME_LEVEL_INTENT_EXTRA, levelDestination);
+				if (nextLevelIndex < levelSet.getLevelCount()) {
+					Intent intent = SokobanGameActivity.createSokobanLevelIntent(levelSet, nextLevelIndex);
 					intent.setClass(getContext(), SokobanGameActivity.class);
 					getContext().startActivity(intent);
 				}
@@ -300,16 +296,15 @@ public class SokobanGameView extends SokobanMapView {
 		return false;
 	}
 
-	boolean performMoves(String moves) {
+	boolean performMoves(CharSequence moves) {
 		SokobanGameState game = getSokobanGame();
 		boolean ok = true;
-		for (int i = 0; i < moves.length(); i++) {
+		for (int i = 0; i < moves.length() && ok; i++) {
 			char move = moves.charAt(i);
 			int[] direction = SokobanGameState.directionFor(move, SokobanGameState.DIRECTIONS_CHAR_POS);
 			int dx = direction[0], dy = direction[1];
-			if (! game.tryMove(dx, dy)) {
+			if ((! game.tryMove(dx, dy)) || game.isDone()) {
 				ok = false;
-				break;
 			}
 		}
 		centerScreenOnPlayerIfNecessary();

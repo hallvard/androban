@@ -17,14 +17,15 @@ public class SokobanMapView extends View {
 		int tileSize = -1;
 	}
 
-	private Bitmap bitmapDiamondOnFloor;
-	private Bitmap bitmapDiamondOnTarget;
-	private Bitmap bitmapFloor;
-	private Bitmap bitmapManOnFloor;
-	private Bitmap bitmapManOnTarget;
-	private final BitmapFactory.Options bitmapOptions = null;
-	private Bitmap bitmapOutside;
-	private Bitmap bitmapTarget;
+	private static Bitmap bitmapDiamondOnFloor;
+	private static Bitmap bitmapDiamondOnTarget;
+	private static Bitmap bitmapFloor;
+	private static Bitmap bitmapManOnFloor;
+	private static Bitmap bitmapManOnTarget;
+	private static BitmapFactory.Options bitmapOptions = null;
+	private static Bitmap bitmapOutside;
+
+	private static Bitmap bitmapTarget;
 
 	private Bitmap bitmapWall;
 
@@ -70,6 +71,7 @@ public class SokobanMapView extends View {
 		}
 
 		Resources resources = getResources();
+
 		if (bitmapOptions == null) {
 			BitmapFactory.Options options = new BitmapFactory.Options();
 			options.inScaled = false;
@@ -83,22 +85,6 @@ public class SokobanMapView extends View {
 			bitmapTarget = BitmapFactory.decodeResource(resources, R.drawable.target_96, options);
 			bitmapWall = BitmapFactory.decodeResource(resources, R.drawable.wall_96, options);
 		}
-
-		//		float scaleFactor = metrics.tileSize / 96.0f;
-		//		Matrix matrix = new Matrix();
-		//		matrix.postScale(scaleFactor, scaleFactor);
-		//
-		//		int imageSize = 96;
-		//		// recreate the new Bitmap
-		//		bitmapDiamondOnFloor = Bitmap.createBitmap(bitmapDiamondOnFloor, 0, 0, imageSize, imageSize, matrix, true);
-		//		bitmapDiamondOnTarget = Bitmap.createBitmap(bitmapDiamondOnTarget, 0, 0, imageSize, imageSize, matrix, true);
-		//		bitmapFloor = Bitmap.createBitmap(bitmapFloor, 0, 0, imageSize, imageSize, matrix, true);
-		//		bitmapManOnFloor = Bitmap.createBitmap(bitmapManOnFloor, 0, 0, imageSize, imageSize, matrix, true);
-		//		bitmapManOnTarget = Bitmap.createBitmap(bitmapManOnTarget, 0, 0, imageSize, imageSize, matrix, true);
-		//		bitmapOutside = Bitmap.createBitmap(bitmapOutside, 0, 0, imageSize, imageSize, matrix, true);
-		//		bitmapTarget = Bitmap.createBitmap(bitmapTarget, 0, 0, imageSize, imageSize, matrix, true);
-		//		bitmapWall = Bitmap.createBitmap(bitmapWall, 0, 0, imageSize, imageSize, matrix, true);
-
 		if (metrics.levelFitsOnScreen) {
 			// 2*offsetX + w = getWidth() =>
 			tileRect.left = (getWidth() - map.getWidth() * metrics.tileSize) / 2;
@@ -121,7 +107,9 @@ public class SokobanMapView extends View {
 		try {
 			for (int tx = 0; tx < map.getWidth(); tx++) {
 				int x = x0 + tileSize * tx;
-				if (clip.isEmpty());
+				if (clip.isEmpty()) {
+					// always draw
+				}
 				else if (x + tileSize < clip.left)
 					continue;
 				else if (x > clip.right)
@@ -130,7 +118,9 @@ public class SokobanMapView extends View {
 				tileRect.right = x + tileSize;
 				for (int ty = (clip.isEmpty() ? 0 : Math.max(0, (clip.top - y0) / tileSize)); ty < map.getHeight(); ty++) {
 					int y = y0 + tileSize * ty;
-					if (clip.isEmpty());
+					if (clip.isEmpty()) {
+						// always draw
+					}
 					else if (y + tileSize < clip.top)
 						continue;
 					else if (y > clip.bottom)

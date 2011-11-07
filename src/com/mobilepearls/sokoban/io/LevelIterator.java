@@ -62,7 +62,6 @@ public class LevelIterator implements Iterator<Level> {
 			}
 		}
 		if (levelInput == null) {
-			InputStream is = null;
 			if (zipEntry != null) {
 				levelInput = new BufferedReader(new InputStreamReader(zipInput));
 			} else if (input != null) {
@@ -99,6 +98,7 @@ public class LevelIterator implements Iterator<Level> {
 					input.close();
 					input = null;
 				} catch (IOException e1) {
+					// ignore
 				}
 			}
 			throw new RuntimeException("Exception when opening InputStream for " + location + ": " + e.getMessage(), e);
@@ -112,7 +112,7 @@ public class LevelIterator implements Iterator<Level> {
 		try {
 			Level level = new Level();
 			levelCount++;
-			level.read(level, levelInput);
+			level.read(levelInput);
 			if (level.getName() == null) {
 				level.setName("Level " + levelCount);
 			}

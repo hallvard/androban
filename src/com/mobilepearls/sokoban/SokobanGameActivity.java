@@ -25,11 +25,38 @@ public class SokobanGameActivity extends Activity implements SokobanMapProvider 
 	/** If the help should be shown (when max level is one). */
 	public static final String SHOW_HELP_INTENT_EXTRA = "SHOW_HELP";
 
+	public static Intent createSokobanLevelIntent(SokobanLevels sokobanLevels, int levelIndex) {
+		Intent intent = new Intent();
+		intent.putExtra(SokobanGameActivity.GAME_LEVEL_SET_EXTRA, sokobanLevels.getName());
+		if (levelIndex >= 0) {
+			intent.putExtra(SokobanGameActivity.GAME_LEVEL_INTENT_EXTRA, levelIndex);
+			intent.putExtra(SokobanGameActivity.SHOW_HELP_INTENT_EXTRA, levelIndex == 0);
+		}
+		return intent;
+	}
+
 	private ClipboardManager clipboardManager;
+
+	//	private Level level;
 
 	SokobanGameState gameState;
 
+	private SokobanLevels sokobanLevels;
+
 	private SokobanGameView view;
+
+	@Override
+	public void finish() {
+		try {
+			Level level = gameState.getCurrentLevel();
+			level.setLevelLines(gameState);
+			level.setMoves(gameState.getUndos());
+			sokobanLevels.writeLevel(level, this);
+		} catch (Exception e) {
+			// ignore
+		}
+		super.finish();
+	}
 
 	@Override
 	public SokobanMap getSokobanMap() {
@@ -66,8 +93,8 @@ public class SokobanGameActivity extends Activity implements SokobanMapProvider 
 				levelSet = "microban";
 			}
 		}
-		SokobanLevels sokobanLevels = SokobanLevels.getSokobanLevels(levelSet);
-		Level level = sokobanLevels.getLevel(levelIndex, getAssets());
+		sokobanLevels = SokobanLevels.getSokobanLevels(levelSet);
+		Level level = sokobanLevels.getLevel(levelIndex, this);
 		if (gameState == null) {
 			gameState = new SokobanGameState(level);
 		}
@@ -75,7 +102,6 @@ public class SokobanGameActivity extends Activity implements SokobanMapProvider 
 		view = (SokobanGameView) findViewById(R.id.android_memoryview);
 		view.setLevelSet(sokobanLevels);
 		view.setTileSize(getSharedPreferences(SokobanMenuActivity.SHARED_PREFS_NAME, MODE_PRIVATE).getInt(IMAGE_SIZE_PREFS_KEY, -1), false);
-		view.performMoves(level.getMoves());
 		clipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
 	}
 

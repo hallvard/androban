@@ -3,7 +3,7 @@
 	<TextView android:text="Level name" android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
 		android:id="@+id/levellabel"
-		android:textSize="20px"
+		android:textSize="16px"
 		android:layout_centerVertical="true"
 		android:layout_alignParentLeft="true"
 		android:layout_toLeftOf="@+id/levelmap"
