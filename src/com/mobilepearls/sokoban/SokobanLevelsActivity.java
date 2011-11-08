@@ -54,7 +54,7 @@ public class SokobanLevelsActivity extends ListActivity {
 				CharSequence moves = level.getMoves();
 				label = label + " - " + SokobanGameState.getMoveCount(moves, true, false) + "/" + SokobanGameState.getMoveCount(moves, false, true);
 			} else if (level.hasMoves()) {
-				label = label + "  (" + level.getDiamondsLeft() + "left)";
+				label = label + "  (" + level.getDiamondsLeft() + " left)";
 			}
 			textView.setText(label);
 			Level initialLevel = level.getInitialLevel();
@@ -104,7 +104,7 @@ public class SokobanLevelsActivity extends ListActivity {
 			}
 			//			SharedPreferences prefs = getSharedPreferences(SokobanLevelsListActivity.SHARED_PREFS_NAME, MODE_PRIVATE);
 			//			final String maxLevelNamePref = SokobanLevelsListActivity.getMaxLevelPrefName(sokobanLevels);
-			int maxLevel = sokobanLevels.getIndexOfLastRemainingLevel();
+			int maxLevel = sokobanLevels.getIndexOfLastRemainingLevel(true, true);
 			setListAdapter(new SokobanLevelsAdapter(this, sokobanLevels, maxLevel + 1));
 		} catch (Exception e) {
 			AlertDialog.Builder alert = new AlertDialog.Builder(this);

@@ -17,31 +17,42 @@ import android.view.View;
 
 public class SokobanGameView extends SokobanMapView {
 
-	class MovesAnimation implements Runnable {
-		private final int delay;
+	private class MovesAnimation extends SokobanAnimation {
 		private CharSequence moves;
 		private int pos;
 		public MovesAnimation(CharSequence moves, int delay) {
+			super(delay);
 			this.moves = moves;
-			this.delay = delay;
 		}
 		@Override
-		public void run() {
+		public boolean step() {
 			if (moves != null && pos < moves.length()) {
 				char move = moves.charAt(pos++);
 				if (! performMove(Character.toLowerCase(move), false)) {
 					moves = null;
 				}
 			}
+			return moves != null && pos < moves.length();
+		}
+	}
+
+	private abstract class SokobanAnimation implements Runnable {
+		private final int delay;
+		public SokobanAnimation(int delay) {
+			this.delay = delay;
+		}
+		@Override
+		public void run() {
+			boolean more = step();
 			movesAnimationHandler.removeCallbacks(this);
-			if (movesAnimationRunnable == this && moves != null) {
-				if (pos < moves.length()) {
-					movesAnimationHandler.postDelayed(this, delay);
-				} else {
-					moves = null;
-				}
+			if (movesAnimationRunnable == this && more) {
+				movesAnimationHandler.postDelayed(this, delay);
+			} else {
+				movesAnimationRunnable = null;
 			}
 		}
+
+		protected abstract boolean step();
 	}
 
 	class TouchHandler extends SimpleOnGestureListener implements OnTouchListener {
@@ -102,6 +113,7 @@ public class SokobanGameView extends SokobanMapView {
 
 				int dx = 0, dy = 0;
 
+				//				System.out.print(xOffset + "," + yOffset);
 				if (Math.abs(xOffset) >= Math.abs(yOffset)) {
 					// perhaps move x?
 					dx = xOffset / metrics.tileSize;
@@ -117,8 +129,10 @@ public class SokobanGameView extends SokobanMapView {
 						yOffset -= dy * metrics.tileSize;
 					}
 				}
-
-				performMove(-dx, -dy, true);
+				//				System.out.println("=" + dx + "," + dy);
+				if (dx != 0 || dy != 0) {
+					performMove(-dx, -dy, true);
+				}
 
 				xTouch = (int) event.getX();
 				yTouch = (int) event.getY();
@@ -127,19 +141,20 @@ public class SokobanGameView extends SokobanMapView {
 		}
 	}
 
-	class UndoAnimation implements Runnable {
+	private class UndoAnimation extends SokobanAnimation {
+		public UndoAnimation() {
+			super(MOVES_ANIMATION_DELAY);
+		}
 		@Override
-		public void run() {
+		public boolean step() {
 			SokobanGameState game = getSokobanGame();
 			if (game.canUndo()) {
 				backPressed();
 			}
-			movesAnimationHandler.removeCallbacks(this);
-			if (movesAnimationRunnable == this && game.canUndo()) {
-				movesAnimationHandler.postDelayed(this, MOVES_ANIMATION_DELAY);
-			}
+			return game.canUndo();
 		}
 	}
+
 	private final static int FLING_VELOCITY_THRESHOLD = 100;
 	public static final int MOVES_ANIMATION_DELAY = 50;
 	private static final int MOVES_REPEATLAST_ANIMATION_DELAY = MOVES_ANIMATION_DELAY * 2;

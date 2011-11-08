@@ -124,6 +124,10 @@ public class Level implements SokobanMap, Iterable<CharSequence>  {
 		return (width >= 0 ? width : (initialLevel != null ? initialLevel.getWidth() : -1));
 	}
 
+	public boolean hasLevelLines() {
+		return iterator().hasNext();
+	}
+
 	public boolean hasMoves() {
 		return hasMoves(true);
 	}
@@ -187,12 +191,12 @@ public class Level implements SokobanMap, Iterable<CharSequence>  {
 					line = line.substring(1);
 					pos--;
 				}
-				String key = line.substring(0, pos), value = line.substring(pos + 1);
+				String key = line.substring(0, pos);
 				if (NAME_KEY.equals(key)) {
-					setName(value);
+					setName(line.substring(pos + 1));
 				}
 			} else if (line.trim().length() == 0) {
-				if (iterator().hasNext()) {
+				if (hasLevelLines()) {
 					break;
 				}
 			} else if (isLevelLine(line, 1.0f, false)) {

@@ -4,10 +4,13 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.ZipInputStream;
 
 import android.content.Context;
 
@@ -217,9 +220,10 @@ public class SokobanLevels {
 		this.location = location;
 	}
 
-	public int getIndexOfLastRemainingLevel() {
+	public int getIndexOfLastRemainingLevel(boolean useDiamondsCheck, boolean useMovesCheck) {
 		for (int i = getLevelCount(); i > 0; i--) {
-			if (getLevel(i - 1).getDiamondsLeft() == 0) {
+			Level level = getLevel(i - 1);
+			if ((useDiamondsCheck && level.getDiamondsLeft() == 0) || (useMovesCheck && level.hasMoves())) {
 				return i;
 			}
 		}
@@ -228,7 +232,8 @@ public class SokobanLevels {
 
 	public int getIndexOfRemainingLevel(int start) {
 		for (int i = start; i < getLevelCount(); i++) {
-			if (getLevel(i).getDiamondsLeft() > 0) {
+			Level level = getLevel(i);
+			if (level.getDiamondsLeft() > 0) {
 				return i;
 			}
 		}
@@ -258,10 +263,6 @@ public class SokobanLevels {
 		return (levels != null ? levels.indexOf(level) : -1);
 	}
 
-	public String getLocation() {
-		return (location != null ? location : name + ".sok");
-	}
-
 	//
 
 	public String getName() {
@@ -272,15 +273,29 @@ public class SokobanLevels {
 		return getName() + "_" + count + ".sok";
 	}
 
-	public void readLevels(Context context) {
-		LevelIterator it = new LevelIterator(getLocation(), context.getAssets());
+	public Exception readLevels(Context context) {
+		InputStream input = null;
+		try {
+			input = context.openFileInput(name + ".sok");
+		} catch (Exception e1) {
+			try {
+				input = (location.indexOf(':') > 2 ? new URL(location).openStream() : context.getAssets().open(location));
+			} catch (Exception e2) {
+				return e2;
+			}
+		}
+		ZipInputStream zipInput = null;
+		if (location.endsWith(".zip")) {
+			zipInput = new ZipInputStream(input);
+		}
+		LevelIterator it = new LevelIterator(input, zipInput);
 		int count = 0;
 		while (it.hasNext()) {
 			Level level = new Level(it.next());
 			count++;
 			try {
-				FileInputStream input = context.openFileInput(getSokobanLevelFileName(level, count));
-				level.read(new BufferedReader(new InputStreamReader(input)));
+				FileInputStream fileInput = context.openFileInput(getSokobanLevelFileName(level, count));
+				level.read(new BufferedReader(new InputStreamReader(fileInput)));
 			} catch (IOException e) {
 				// ignore
 			}
@@ -289,6 +304,7 @@ public class SokobanLevels {
 			}
 			levels.add(level);
 		}
+		return null;
 	}
 
 	public void writeLevel(Level level, Context context) {

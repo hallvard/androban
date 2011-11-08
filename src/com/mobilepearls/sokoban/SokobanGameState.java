@@ -402,10 +402,10 @@ public class SokobanGameState implements SokobanMap, Serializable {
 	public boolean tryMove(int dx, int dy) {
 		int steps = 0;
 		if (dx != 0) {
-			steps = (int) (dx / Math.signum(dx));
+			steps = Math.abs(dx);
 			dx /= steps;
 		} else if (dy != 0) {
-			steps = (int) (dy / Math.signum(dy));
+			steps = Math.abs(dy);
 			dy /= steps;
 		}
 		char move = moveFor(dx, dy);
