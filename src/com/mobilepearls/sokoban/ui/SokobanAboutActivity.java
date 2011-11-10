@@ -1,6 +1,8 @@
-package com.mobilepearls.sokoban;
+package com.mobilepearls.sokoban.ui;
 
 import com.mobilepearls.sokoban.R;
+import com.mobilepearls.sokoban.R.id;
+import com.mobilepearls.sokoban.R.layout;
 
 import android.app.Activity;
 import android.content.pm.PackageInfo;

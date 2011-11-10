@@ -1,4 +1,4 @@
-package com.mobilepearls.sokoban;
+package com.mobilepearls.sokoban.ui;
 
 import android.content.Context;
 import android.content.res.Resources;
@@ -10,6 +10,11 @@ import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.View;
 
+import com.mobilepearls.sokoban.R;
+import com.mobilepearls.sokoban.R.drawable;
+import com.mobilepearls.sokoban.core.SokobanGameState;
+import com.mobilepearls.sokoban.core.SokobanMap;
+
 public class SokobanMapView extends View {
 
 	static class GameMetrics {
@@ -17,17 +22,9 @@ public class SokobanMapView extends View {
 		int tileSize = -1;
 	}
 
-	private static Bitmap bitmapDiamondOnFloor;
-	private static Bitmap bitmapDiamondOnTarget;
-	private static Bitmap bitmapFloor;
-	private static Bitmap bitmapManOnFloor;
-	private static Bitmap bitmapManOnTarget;
 	private static BitmapFactory.Options bitmapOptions = null;
-	private static Bitmap bitmapOutside;
 
-	private static Bitmap bitmapTarget;
-
-	private Bitmap bitmapWall;
+	private static Bitmap bitmaps[] = new Bitmap[SokobanMap.CHARS_ALL.length()];
 
 	//	private int imageSize = -1;
 
@@ -41,8 +38,8 @@ public class SokobanMapView extends View {
 
 	public SokobanMapView(Context context, AttributeSet attributes) {
 		super(context, attributes);
-		if (context instanceof SokobanMapProvider) {
-			this.map = ((SokobanMapProvider) context).getSokobanMap();
+		if (context instanceof SokobanGameActivity) {
+			this.map = ((SokobanGameActivity) context).getSokobanMap();
 		}
 	}
 
@@ -73,17 +70,17 @@ public class SokobanMapView extends View {
 		Resources resources = getResources();
 
 		if (bitmapOptions == null) {
-			BitmapFactory.Options options = new BitmapFactory.Options();
-			options.inScaled = false;
+			bitmapOptions = new BitmapFactory.Options();
+			bitmapOptions.inScaled = false;
 
-			bitmapDiamondOnFloor = BitmapFactory.decodeResource(resources, R.drawable.diamond_on_floor_96, options);
-			bitmapDiamondOnTarget = BitmapFactory.decodeResource(resources, R.drawable.diamond_on_target_96, options);
-			bitmapFloor = BitmapFactory.decodeResource(resources, R.drawable.floor_96, options);
-			bitmapManOnFloor = BitmapFactory.decodeResource(resources, R.drawable.man_on_floor_96, options);
-			bitmapManOnTarget = BitmapFactory.decodeResource(resources, R.drawable.man_on_target_96, options);
-			bitmapOutside = BitmapFactory.decodeResource(resources, R.drawable.outside_96, options);
-			bitmapTarget = BitmapFactory.decodeResource(resources, R.drawable.target_96, options);
-			bitmapWall = BitmapFactory.decodeResource(resources, R.drawable.wall_96, options);
+			loadBitmap(SokobanMap.CHAR_DIAMOND_ON_FLOOR, 	R.drawable.diamond_on_floor_96, 	resources);
+			loadBitmap(SokobanMap.CHAR_DIAMOND_ON_TARGET, 	R.drawable.diamond_on_target_96, 	resources);
+			loadBitmap(SokobanMap.CHAR_FLOOR, 				R.drawable.floor_96, 				resources);
+			loadBitmap(SokobanMap.CHAR_MAN_ON_FLOOR, 		R.drawable.man_on_floor_96, 		resources);
+			loadBitmap(SokobanMap.CHAR_MAN_ON_TARGET, 		R.drawable.man_on_target_96, 		resources);
+			loadBitmap(SokobanMap.CHAR_TARGET, 				R.drawable.target_96, 				resources);
+			loadBitmap(SokobanMap.CHAR_WALL, 				R.drawable.wall_96, 				resources);
+			loadBitmap(SokobanMap.CHAR_OUTSIDE, 			R.drawable.outside_96, 				resources);
 		}
 		if (metrics.levelFitsOnScreen) {
 			// 2*offsetX + w = getWidth() =>
@@ -140,6 +137,16 @@ public class SokobanMapView extends View {
 		}
 	}
 
+	protected boolean drawTile(Canvas canvas, char c, Rect rect) {
+		int pos = SokobanMap.CHARS_ALL.indexOf(c);
+		if (pos < 0) {
+			return false;
+		}
+		Bitmap tileBitmap = bitmaps[pos];
+		canvas.drawBitmap(tileBitmap, null, rect, null);
+		return true;
+	}
+
 	//	public int getImageSize() {
 	//		int imageSize = this.imageSize;
 	//		if (imageSize <= 0) {
@@ -150,42 +157,15 @@ public class SokobanMapView extends View {
 	//		return imageSize;
 	//	}
 
-	protected boolean drawTile(Canvas canvas, char c, Rect rect) {
-		Bitmap tileBitmap;
-		switch (c) {
-		case SokobanGameState.CHAR_OUTSIDE:
-			tileBitmap = bitmapOutside;
-			break;
-		case SokobanGameState.CHAR_WALL:
-			tileBitmap = bitmapWall;
-			break;
-		case SokobanGameState.CHAR_MAN_ON_FLOOR:
-			tileBitmap = bitmapManOnFloor;
-			break;
-		case SokobanGameState.CHAR_MAN_ON_TARGET:
-			tileBitmap = bitmapManOnTarget;
-			break;
-		case SokobanGameState.CHAR_FLOOR:
-			tileBitmap = bitmapFloor;
-			break;
-		case SokobanGameState.CHAR_DIAMOND_ON_FLOOR:
-			tileBitmap = bitmapDiamondOnFloor;
-			break;
-		case SokobanGameState.CHAR_DIAMOND_ON_TARGET:
-			tileBitmap = bitmapDiamondOnTarget;
-			break;
-		case SokobanGameState.CHAR_TARGET:
-			tileBitmap = bitmapTarget;
-			break;
-		default:
-			return false;
-		}
-		canvas.drawBitmap(tileBitmap, null, rect, null);
-		return true;
-	}
-
 	public int getTileSize() {
 		return (metrics == null ? metrics.tileSize : 0);
+	}
+
+	private void loadBitmap(char c, int id, Resources resources) {
+		int pos = SokobanMap.CHARS_ALL.indexOf(c);
+		if (pos >= 0) {
+			bitmaps[pos] = BitmapFactory.decodeResource(resources, id, bitmapOptions);
+		}
 	}
 
 	@Override
@@ -207,7 +187,7 @@ public class SokobanMapView extends View {
 		if (newSize >= 70 || newSize <= 10) {
 			return;
 		}
-		metrics.tileSize = size;
+		metrics.tileSize = newSize;
 		customSizeChanged();
 	}
 }

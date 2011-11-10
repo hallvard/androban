@@ -5,7 +5,7 @@
     android:layout_width="fill_parent"
     android:layout_height="fill_parent">
     
-  <com.mobilepearls.sokoban.SokobanGameView
+  <com.mobilepearls.sokoban.ui.SokobanGameView
     android:hapticFeedbackEnabled="true"
    	android:id="@+id/android:memoryview"
     android:layout_width="fill_parent"

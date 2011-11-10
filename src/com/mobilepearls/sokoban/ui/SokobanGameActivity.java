@@ -1,4 +1,4 @@
-package com.mobilepearls.sokoban;
+package com.mobilepearls.sokoban.ui;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -10,9 +10,15 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
+import com.mobilepearls.sokoban.R;
+import com.mobilepearls.sokoban.R.id;
+import com.mobilepearls.sokoban.R.layout;
+import com.mobilepearls.sokoban.R.menu;
+import com.mobilepearls.sokoban.core.SokobanGameState;
+import com.mobilepearls.sokoban.core.SokobanMap;
 import com.mobilepearls.sokoban.io.Level;
 
-public class SokobanGameActivity extends Activity implements SokobanMapProvider {
+public class SokobanGameActivity extends Activity {
 
 	/** Key under which the {@link SokobanGameState} is stored in the saved instance state bundle. */
 	private static final String GAME_KEY = "GAME";
@@ -37,10 +43,8 @@ public class SokobanGameActivity extends Activity implements SokobanMapProvider 
 
 	private ClipboardManager clipboardManager;
 
-	//	private Level level;
-
-	SokobanGameState gameState;
-
+	private Level currentLevel;
+	private SokobanGameState gameState;
 	private SokobanLevels sokobanLevels;
 
 	private SokobanGameView view;
@@ -48,9 +52,9 @@ public class SokobanGameActivity extends Activity implements SokobanMapProvider 
 	@Override
 	public void finish() {
 		try {
-			Level level = gameState.getCurrentLevel();
+			Level level = currentLevel;
 			level.setLevelLines(gameState);
-			level.setMoves(gameState.getUndos());
+			level.setMoves(gameState.getMoves());
 			sokobanLevels.writeLevel(level, this);
 		} catch (Exception e) {
 			// ignore
@@ -58,7 +62,6 @@ public class SokobanGameActivity extends Activity implements SokobanMapProvider 
 		super.finish();
 	}
 
-	@Override
 	public SokobanMap getSokobanMap() {
 		return gameState;
 	}
@@ -94,13 +97,13 @@ public class SokobanGameActivity extends Activity implements SokobanMapProvider 
 			}
 		}
 		sokobanLevels = SokobanLevels.getSokobanLevels(levelSet);
-		Level level = sokobanLevels.getLevel(levelIndex, this);
+		currentLevel = sokobanLevels.getLevel(levelIndex, this);
 		if (gameState == null) {
-			gameState = new SokobanGameState(level);
+			gameState = new SokobanGameState(currentLevel);
 		}
 		setContentView(R.layout.main);
 		view = (SokobanGameView) findViewById(R.id.android_memoryview);
-		view.setLevelSet(sokobanLevels);
+		view.setLevelInfo(sokobanLevels, currentLevel);
 		view.setTileSize(getSharedPreferences(SokobanMenuActivity.SHARED_PREFS_NAME, MODE_PRIVATE).getInt(IMAGE_SIZE_PREFS_KEY, -1), false);
 		clipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
 	}
@@ -147,7 +150,7 @@ public class SokobanGameActivity extends Activity implements SokobanMapProvider 
 		} else if (item.getItemId() == R.id.help_menu) {
 			showHelp();
 		} else if (item.getItemId() == R.id.copy_moves_menu) {
-			clipboardManager.setText(gameState.getUndos());
+			clipboardManager.setText(gameState.getMoves());
 		} else if (item.getItemId() == R.id.paste_moves_menu) {
 			if (clipboardManager.hasText()) {
 				view.startMovesAnimation(clipboardManager.getText(), SokobanGameView.MOVES_ANIMATION_DELAY);

@@ -1,6 +1,4 @@
-package com.mobilepearls.sokoban;
-
-import com.mobilepearls.sokoban.R;
+package com.mobilepearls.sokoban.ui;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -13,6 +11,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
+
+import com.mobilepearls.sokoban.R;
 
 public class SokobanMenuActivity extends Activity {
 

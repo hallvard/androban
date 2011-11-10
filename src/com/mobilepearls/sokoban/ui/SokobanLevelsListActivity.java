@@ -1,4 +1,4 @@
-package com.mobilepearls.sokoban;
+package com.mobilepearls.sokoban.ui;
 
 import android.app.ListActivity;
 import android.content.Intent;

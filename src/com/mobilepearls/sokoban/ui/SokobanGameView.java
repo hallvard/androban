@@ -1,10 +1,12 @@
-package com.mobilepearls.sokoban;
+package com.mobilepearls.sokoban.ui;
+
 
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Point;
 import android.os.Handler;
 import android.os.Vibrator;
 import android.util.AttributeSet;
@@ -14,6 +16,10 @@ import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+
+import com.mobilepearls.sokoban.core.SokobanGameState;
+import com.mobilepearls.sokoban.core.SokobanMap;
+import com.mobilepearls.sokoban.io.Level;
 
 public class SokobanGameView extends SokobanMapView {
 
@@ -28,7 +34,7 @@ public class SokobanGameView extends SokobanMapView {
 		public boolean step() {
 			if (moves != null && pos < moves.length()) {
 				char move = moves.charAt(pos++);
-				if (! performMove(Character.toLowerCase(move), false)) {
+				if (performMove(Character.toLowerCase(move), false) <= 0) {
 					moves = null;
 				}
 			}
@@ -57,17 +63,17 @@ public class SokobanGameView extends SokobanMapView {
 
 	class TouchHandler extends SimpleOnGestureListener implements OnTouchListener {
 
-		private int xDown;
-		private int xOffset;
-		private int xTouch;
-		private int yDown;
-		private int yOffset;
-
-		private int yTouch;
+		private Point diamondDragPosition = null;
+		private final Point down = new Point();
+		boolean ignoreDrag;
+		private final Point last = new Point();
+		private final Point offset = new Point();
+		private final Point tile = new Point();
 
 		@Override
 		public boolean onFling(MotionEvent event1, MotionEvent event2, float velocityX, float velocityY) {
-			if (Math.abs(velocityX) > FLING_VELOCITY_THRESHOLD || Math.abs(velocityY) > FLING_VELOCITY_THRESHOLD) {
+			int threshold = FLING_VELOCITY_THRESHOLD * metrics.tileSize;
+			if (Math.abs(velocityX) > threshold || Math.abs(velocityY) > threshold) {
 				if (Math.abs(velocityX) >= Math.abs(velocityY)) {
 					velocityY = 0;
 				} else {
@@ -78,7 +84,7 @@ public class SokobanGameView extends SokobanMapView {
 				CharSequence moves = game.computeLastMovesInDirection(move);
 				if (moves == null)
 					moves = game.computeMovesInDirection(move, true);
-				startMovesAnimation(moves, MOVES_REPEATLAST_ANIMATION_DELAY);
+				startMovesAnimation(moves, MOVES_STOPABLE_ANIMATION_DELAY);
 				return true;
 			}
 			return false;
@@ -89,61 +95,81 @@ public class SokobanGameView extends SokobanMapView {
 			if (gestureDetector.onTouchEvent(event)) {
 				return true;
 			}
+			tile.set(((int) event.getX() - tileRect.left) / metrics.tileSize, ((int) event.getY() - tileRect.top) / metrics.tileSize);
 			if (event.getAction() == MotionEvent.ACTION_DOWN) {
 				ignoreDrag = (movesAnimationRunnable != null);
-				stopMovesAnimation();
-				xDown = xTouch = (int) event.getX();
-				yDown = yTouch = (int) event.getY();
-				xOffset = 0;
-				yOffset = 0;
+				stopSokobanAnimation();
+				down.set((int) event.getX(), (int) event.getY());
+				offset.set(0, 0);
+				char c = getSokobanGame().getItemAt(tile.x, tile.y);
+				diamondDragPosition = (c == SokobanMap.CHAR_DIAMOND_ON_FLOOR || c == SokobanMap.CHAR_DIAMOND_ON_TARGET ? new Point(tile) : null);
 			} else if (event.getAction() == MotionEvent.ACTION_UP) {
 				if (ignoreDrag)
 					return true;
 				// perhaps move to clicked tile? if not is moving?
-				if (Math.abs(xDown - event.getX()) < metrics.tileSize && Math.abs(yDown - event.getY()) < metrics.tileSize) {
-					CharSequence moves = getSokobanGame().computeMovesToGoal((xTouch - tileRect.left) / metrics.tileSize, (yTouch - tileRect.top) / metrics.tileSize);
-					startMovesAnimation(moves, MOVES_ANIMATION_DELAY);
+				if (Math.abs(down.x - event.getX()) < metrics.tileSize && Math.abs(down.y - event.getY()) < metrics.tileSize) {
+					CharSequence moves = getSokobanGame().computeMovesToGoal(tile.x, tile.y);
+					if (moves != null) {
+						startMovesAnimation(moves, MOVES_ANIMATION_DELAY);
+					}
 				}
 			} else if (event.getAction() == MotionEvent.ACTION_MOVE) {
-				if (ignoreDrag)
+				if (ignoreDrag || movesAnimationRunnable != null)
 					return true;
 
-				xOffset += xTouch - (int) event.getX();
-				yOffset += yTouch - (int) event.getY();
+				offset.offset(last.x - (int) event.getX(), last.y - (int) event.getY());
 
 				int dx = 0, dy = 0;
 
-				//				System.out.print(xOffset + "," + yOffset);
-				if (Math.abs(xOffset) >= Math.abs(yOffset)) {
-					// perhaps move x?
-					dx = xOffset / metrics.tileSize;
-					if (dx != 0) {
-						yOffset = 0; // <= since we move horizontally, reset vertical offset
-						xOffset -= dx * metrics.tileSize;
-					}
+				if (Math.abs(offset.x) >= Math.abs(offset.y)) {
+					dx = offset.x / metrics.tileSize;
 				} else {
-					// perhaps move y?
-					dy = yOffset / metrics.tileSize;
-					if (dy != 0) {
-						xOffset = 0; // <= since we move vertically, reset horizontal offset
-						yOffset -= dy * metrics.tileSize;
+					dy = offset.y / metrics.tileSize;
+				}
+				if (dx != 0 || dy != 0) {
+					boolean consumeOffset = false;
+					if (diamondDragPosition != null) {
+						int signX = (int) Math.signum(-dx), signY = (int) Math.signum(-dy);
+						int otherX = diamondDragPosition.x - signX, otherY = diamondDragPosition.y - signY;
+						char otherTile = getSokobanGame().getItemAt(otherX, otherY);
+						CharSequence moves = getSokobanGame().computeMovesToGoal(otherX, otherY);
+						if (moves != null) {
+							startMovesAnimation(moves, MOVES_ANIMATION_DELAY);
+							// performMoves(moves, true);
+						}
+						otherTile = getSokobanGame().getItemAt(otherX, otherY);
+						if (otherTile == SokobanMap.CHAR_MAN_ON_FLOOR || otherTile == SokobanMap.CHAR_MAN_ON_TARGET) {
+							int steps = performMove(-dx, -dy, true);
+							consumeOffset = true;
+							if (steps > 0) {
+								diamondDragPosition.offset(steps * signX, steps * signY);
+							}
+						}
+						// drag diamond
+					} else {
+						// move player
+						performMove(-dx, -dy, true);
+						consumeOffset = true;
+					}
+					if (consumeOffset) {
+						if (dx != 0) {
+							offset.y = 0; // <= since we move horizontally, reset vertical offset
+							offset.x -= dx * metrics.tileSize;
+						} else if (dy != 0) {
+							offset.x = 0; // <= since we move vertically, reset horizontal offset
+							offset.y -= dy * metrics.tileSize;
+						}
 					}
 				}
-				//				System.out.println("=" + dx + "," + dy);
-				if (dx != 0 || dy != 0) {
-					performMove(-dx, -dy, true);
-				}
-
-				xTouch = (int) event.getX();
-				yTouch = (int) event.getY();
 			}
+			last.set((int) event.getX(), (int) event.getY());
 			return true;
 		}
 	}
 
 	private class UndoAnimation extends SokobanAnimation {
 		public UndoAnimation() {
-			super(MOVES_ANIMATION_DELAY);
+			super(MOVES_STOPABLE_ANIMATION_DELAY);
 		}
 		@Override
 		public boolean step() {
@@ -155,14 +181,14 @@ public class SokobanGameView extends SokobanMapView {
 		}
 	}
 
-	private final static int FLING_VELOCITY_THRESHOLD = 100;
-	public static final int MOVES_ANIMATION_DELAY = 50;
-	private static final int MOVES_REPEATLAST_ANIMATION_DELAY = MOVES_ANIMATION_DELAY * 2;
+	private final static int FLING_VELOCITY_THRESHOLD = 10;
+	public static final int MOVES_ANIMATION_DELAY = 10;
+	private static final int MOVES_STOPABLE_ANIMATION_DELAY = MOVES_ANIMATION_DELAY * 8;
+
+	private Level currentLevel;
 
 	private final GestureDetector gestureDetector;
-
 	private boolean hapticFeedback;
-	boolean ignoreDrag;
 	private SokobanLevels levelSet;
 
 	private final Handler movesAnimationHandler = new Handler();
@@ -201,7 +227,7 @@ public class SokobanGameView extends SokobanMapView {
 	/** Called by our own activity. */
 	public void backPressed() {
 		SokobanGameState game = getSokobanGame();
-		if (game.performUndo()) {
+		if (game.tryUndo()) {
 			centerScreenOnPlayerIfNecessary();
 			invalidate();
 		} else if (! game.canUndo()) {
@@ -228,7 +254,7 @@ public class SokobanGameView extends SokobanMapView {
 		if (tilesLeftOfPlayer <= THRESHOLD || tilesRightOfPlayer <= THRESHOLD || tilesAboveOfPlayer <= THRESHOLD
 				|| tilesBelowOfPlayer <= THRESHOLD) {
 			centerScreenOnPlayer();
-			ignoreDrag = true;
+			touchHandler.ignoreDrag = true;
 		}
 	}
 
@@ -238,12 +264,11 @@ public class SokobanGameView extends SokobanMapView {
 			vibrator.vibrate(300);
 		}
 		invalidate();
-
 		//		SharedPreferences prefs = getContext().getSharedPreferences(SokobanMenuActivity.SHARED_PREFS_NAME,
 		//				Context.MODE_PRIVATE);
 		//		final String maxLevelPrefName = SokobanLevelsListActivity.getMaxLevelPrefName(levelSet);
 		//		int currentMaxLevel = prefs.getInt(maxLevelPrefName, 1);
-		int levelIndex = levelSet.getLevelIndex(getSokobanGame().getCurrentLevel());
+		int levelIndex = levelSet.getLevelIndex(currentLevel);
 		final int nextLevelIndex = Math.max(levelSet.getIndexOfRemainingLevel(levelIndex + 1), levelSet.getIndexOfRemainingLevel(0));
 		//		int newMaxLevel = levelIndex + 2;
 		String message = "Level cleared - opening next level!";
@@ -288,14 +313,16 @@ public class SokobanGameView extends SokobanMapView {
 		super.onSizeChanged(width, height, oldw, oldh);
 		customSizeChanged();
 	}
-	boolean performMove(char move, boolean hapticFeedback) {
+
+	private int performMove(char move, boolean hapticFeedback) {
 		int[] direction = SokobanGameState.directionFor(move, SokobanGameState.DIRECTIONS_CHAR_POS);
 		return performMove(direction[0], direction[1], hapticFeedback);
 	}
 
-	boolean performMove(int dx, int dy, boolean hapticFeedback) {
+	private int performMove(int dx, int dy, boolean hapticFeedback) {
 		SokobanGameState game = getSokobanGame();
-		if (game.tryMove(dx, dy)) {
+		int steps = game.tryMove(dx, dy);
+		if (steps > 0) {
 			if (hapticFeedback && this.hapticFeedback) {
 				performHapticFeedback(HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING);
 			}
@@ -304,45 +331,42 @@ public class SokobanGameView extends SokobanMapView {
 
 			if (game.isDone()) {
 				gameOver();
-				return false;
+				return -steps;
 			}
-			return true;
+			return steps;
 		}
-		return false;
+		return 0;
 	}
 
-	boolean performMoves(CharSequence moves) {
+	private boolean performMoves(CharSequence moves, boolean hapticFeedback) {
 		SokobanGameState game = getSokobanGame();
-		boolean ok = true;
-		for (int i = 0; i < moves.length() && ok; i++) {
-			char move = moves.charAt(i);
-			int[] direction = SokobanGameState.directionFor(move, SokobanGameState.DIRECTIONS_CHAR_POS);
-			int dx = direction[0], dy = direction[1];
-			if ((! game.tryMove(dx, dy)) || game.isDone()) {
-				ok = false;
+		for (int i = 0; i < moves.length(); i++) {
+			if (performMove(moves.charAt(i), hapticFeedback) <= 0) {
+				return false;
 			}
+			hapticFeedback = false;
 		}
-		centerScreenOnPlayerIfNecessary();
-		invalidate();
-		return ok;
+		return true;
 	}
-	public void setLevelSet(SokobanLevels levelSet) {
+
+	public void setLevelInfo(SokobanLevels levelSet, Level level) {
 		this.levelSet = levelSet;
+		this.currentLevel = level;
 	}
 
 	public void startMovesAnimation(CharSequence moves, int delay) {
-		stopMovesAnimation();
+		stopSokobanAnimation();
 		movesAnimationRunnable = new MovesAnimation(moves, delay);
 		movesAnimationHandler.postDelayed(movesAnimationRunnable, delay);
 	}
 
 	public void startUndoAnimation() {
-		stopMovesAnimation();
+		stopSokobanAnimation();
 		movesAnimationRunnable = new UndoAnimation();
 		movesAnimationHandler.postDelayed(movesAnimationRunnable, MOVES_ANIMATION_DELAY);
 	}
 
-	private void stopMovesAnimation() {
+	private void stopSokobanAnimation() {
 		if (movesAnimationRunnable != null)
 			movesAnimationHandler.removeCallbacks(movesAnimationRunnable);
 		movesAnimationRunnable = null;

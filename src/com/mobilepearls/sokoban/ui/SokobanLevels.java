@@ -1,4 +1,4 @@
-package com.mobilepearls.sokoban;
+package com.mobilepearls.sokoban.ui;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -22,16 +22,11 @@ public class SokobanLevels {
 	private static final List<SokobanLevels> levelMaps = new ArrayList<SokobanLevels>();
 
 	static {
-		levelMaps.add(new SokobanLevels("microban", "Microban (easy)", 50, "microban.sok"));
-		levelMaps.add(new SokobanLevels("original", "Original", 155, "original.sok"));
+		levelMaps.add(new SokobanLevels("microban", "Microban (easy)", 155, "microban.sok"));
+		levelMaps.add(new SokobanLevels("original", "Original", 50, "original.sok"));
 		levelMaps.add(new SokobanLevels("mas_sasquatch", "Mas Sasquatch", 50, "mas_sasquatch.sok"));
 		levelMaps.add(new SokobanLevels("sasquatch_iii", "Sasquatch III", 50, "sasquatch_iii.sok"));
 		levelMaps.add(new SokobanLevels("sasquatch_iv", "Sasquatch IV", 49, "sasquatch_iv.sok"));
-		levelMaps.add(new SokobanLevels("megasoft1", "Megasoft 1", 100, "megasoft1.sok"));
-		levelMaps.add(new SokobanLevels("megasoft2", "Megasoft 2", 100, "megasoft2.sok"));
-		levelMaps.add(new SokobanLevels("megasoft3", "Megasoft 3", 100, "megasoft3.sok"));
-		levelMaps.add(new SokobanLevels("megasoft4", "Megasoft 4", 100, "megasoft4.sok"));
-		levelMaps.add(new SokobanLevels("megasoft5", "Megasoft 5", 100, "megasoft5.sok"));
 
 		levelMaps.add(new SokobanLevels("bernier", "Initial Trouble", 12, "http://sokobano.de/sets/bernier.zip"));
 		levelMaps.add(new SokobanLevels("minicosmos", "Minicosmos", 40, "http://sokobano.de/sets/minicosmos.zip"));

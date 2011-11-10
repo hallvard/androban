@@ -8,7 +8,7 @@
 		android:layout_alignParentLeft="true"
 		android:layout_toLeftOf="@+id/levelmap"
 		/>
-	<com.mobilepearls.sokoban.SokobanMapView
+	<com.mobilepearls.sokoban.ui.SokobanMapView
 	   	android:id="@+id/levelmap"
 	    android:layout_width="50px"
 	    android:layout_height="50px"

@@ -1,15 +1,12 @@
-package com.mobilepearls.sokoban;
+package com.mobilepearls.sokoban.core;
 
-import java.io.Serializable;
 import java.util.LinkedList;
 import java.util.Queue;
 
 import android.view.KeyEvent;
 
-import com.mobilepearls.sokoban.io.Level;
-
 @SuppressWarnings("serial")
-public class SokobanGameState implements SokobanMap, Serializable {
+public class SokobanGameState extends SokobanArrayMap {
 
 	private static final int[][] directions = {
 		{ 0,  1, 'd', KeyEvent.KEYCODE_DPAD_DOWN},
@@ -26,18 +23,6 @@ public class SokobanGameState implements SokobanMap, Serializable {
 				return directions[j];
 		}
 		return null;
-	}
-
-	public static int getDiamondsLeft(SokobanMap map) {
-		int count = 0;
-		for (int x = 0; x < map.getWidth(); x++) {
-			for (int y = 0; y < map.getHeight(); y++) {
-				char c = map.getItemAt(x, y);
-				if (c == CHAR_DIAMOND_ON_FLOOR)
-					count++;
-			}
-		}
-		return count;
 	}
 
 	public static int getMoveCount(CharSequence moves, boolean includeMoves, boolean includePushes) {
@@ -58,12 +43,17 @@ public class SokobanGameState implements SokobanMap, Serializable {
 	}
 
 	public static int[] getPlayerPosition(SokobanMap map, int[] position) {
-		for (int x = 0; x < map.getWidth(); x++) {
-			for (int y = 0; y < map.getHeight(); y++) {
-				char c = map.getItemAt(x, y);
-				if (CHAR_MAN_ON_FLOOR == c || CHAR_MAN_ON_TARGET == c) {
-					position[0] = x;
-					position[1] = y;
+		if (map instanceof SokobanArrayMap) {
+			position[0] = ((SokobanArrayMap) map).getPlayerX();
+			position[1] = ((SokobanArrayMap) map).getPlayerY();
+		} else {
+			for (int x = 0; x < map.getWidth(); x++) {
+				for (int y = 0; y < map.getHeight(); y++) {
+					char c = map.getItemAt(x, y);
+					if (CHAR_MAN_ON_FLOOR == c || CHAR_MAN_ON_TARGET == c) {
+						position[0] = x;
+						position[1] = y;
+					}
 				}
 			}
 		}
@@ -109,50 +99,31 @@ public class SokobanGameState implements SokobanMap, Serializable {
 	private static char originalCharWhenManLeaves(char current) {
 		return (current == CHAR_MAN_ON_FLOOR) ? CHAR_FLOOR : CHAR_TARGET;
 	}
-	public static char[][] toCharMatrix(SokobanMap map) {
-		int width = map.getWidth(), height = map.getHeight();
-		char[][] result = new char[width][height];
-		for (int x = 0; x < width; x++) {
-			for (int y = 0; y < height; y++) {
-				result[x][y] = map.getItemAt(x, y);
-			}
-		}
-		return result;
-	}
+
 	private transient StringBuilder buffer = new StringBuilder();
-
-	private transient final Level currentLevel;
-
-	private final char[][] map;
 
 	private transient final int[] playerPosition = new int[2];
 
-	// hal: switched to char representation of move
-	private final StringBuilder undos = new StringBuilder(); // new LinkedList<Undo>();
-
-	public SokobanGameState(Level level) {
-		currentLevel = level;
-		undos.append(level.getMoves());
-		map = toCharMatrix(currentLevel);
+	public SokobanGameState(SokobanMap map) {
+		super(map);
 	}
 
 	public boolean canUndo() {
-		return undos.length() > 0;
+		return moves.length() > 0;
 	}
 
 	// hal: find last moves from same position in same direction
 	public CharSequence computeLastMovesInDirection(char move) {
-		getPlayerPosition(this, playerPosition);
-		int nx = playerPosition[0], ny = playerPosition[1];
+		int nx = getPlayerX(), ny = getPlayerY();
 		int[] direction = directionFor(move, DIRECTIONS_CHAR_POS);
-		int pos = undos.length() - 1;
+		int pos = moves.length() - 1;
 		while (pos >= 0) {
-			char c = undos.charAt(pos);
+			char c = moves.charAt(pos);
 			int[] undoDirection = directionFor(Character.toLowerCase(c), DIRECTIONS_CHAR_POS);
 			nx -= undoDirection[0];
 			ny -= undoDirection[1];
 			if (nx == playerPosition[0] && ny == playerPosition[1] && undoDirection == direction) {
-				return undos.substring(pos);
+				return moves.substring(pos);
 			}
 			pos--;
 		}
@@ -169,8 +140,7 @@ public class SokobanGameState implements SokobanMap, Serializable {
 			buffer = new StringBuilder();
 		else
 			buffer.setLength(0);
-		getPlayerPosition(this, playerPosition);
-		int nx = playerPosition[0], ny = playerPosition[1];
+		int nx = getPlayerX(), ny = getPlayerY();
 		outer: while (true) {
 			int[] possibleDirection = null;
 			for (int i = 0; i < directions.length; i++) {
@@ -179,15 +149,16 @@ public class SokobanGameState implements SokobanMap, Serializable {
 				if (testDirection[0] == -direction[0] && testDirection[1] == -direction[1]) {
 					continue;
 				}
-				if (tryMove((char) testDirection[DIRECTIONS_CHAR_POS], 1, nx, ny, considerPushes, false)) {
+				if (tryMove((char) testDirection[DIRECTIONS_CHAR_POS], 1, nx, ny, considerPushes, false) > 0) {
 					if (possibleDirection != null)
 						break outer;
 					else
 						possibleDirection = testDirection;
 				}
 			}
-			if (possibleDirection == null || (! tryMove((char) possibleDirection[DIRECTIONS_CHAR_POS], 1, nx, ny, false, false)))
+			if (possibleDirection == null || tryMove((char) possibleDirection[DIRECTIONS_CHAR_POS], 1, nx, ny, false, false) == 0) {
 				break;
+			}
 			buffer.append((char) possibleDirection[DIRECTIONS_CHAR_POS]);
 			nx += possibleDirection[0];
 			ny += possibleDirection[1];
@@ -198,6 +169,10 @@ public class SokobanGameState implements SokobanMap, Serializable {
 
 	// hal: compute moves leading to goal position
 	public CharSequence computeMovesToGoal(int goalX, int goalY) {
+		char goalValue = getItemAt(goalX, goalY);
+		if (goalValue != CHAR_FLOOR && goalValue != CHAR_TARGET) {
+			return null;
+		}
 		int startX = -1, startY = -1, height = getHeight();
 		// copy the current state
 		if (buffer == null)
@@ -258,86 +233,39 @@ public class SokobanGameState implements SokobanMap, Serializable {
 		return null;
 	}
 
-	public Level getCurrentLevel() {
-		return currentLevel;
-	}
-
-	public int getHeight() {
-		return map[0].length;
-	}
-
-	public char getItemAt(int x, int y) {
-		return map[x][y];
-	}
-
-	public String getUndos() {
-		return undos.toString();
-	}
-
-	public int getWidth() {
-		return map.length;
-	}
-
 	public boolean isDone() {
-		return getDiamondsLeft(this) == 0;
-	}
-
-	public boolean performUndo() {
-		if (undos.length() == 0)
-			return false;
-		int pos = undos.length() - 1;
-		char move = undos.charAt(pos);
-		undos.setLength(pos);
-		int[] direction = directionFor(Character.toLowerCase(move), DIRECTIONS_CHAR_POS);
-		if (direction == null) {
-			return false;
-		}
-
-		int dx = direction[0], dy = direction[1];
-		getPlayerPosition(this, playerPosition);
-		int playerX = playerPosition[0], playerY = playerPosition[1];
-
-		setItemAt(playerX - dx, playerY - dy, newCharWhenManEnters(getItemAt(playerX - dx, playerY - dy)));
-		if (Character.isUpperCase(move)) {
-			setItemAt(playerX, playerY, newCharWhenDiamondEnters(getItemAt(playerX, playerY)));
-			setItemAt(playerX + dx, playerY + dy, originalCharWhenDiamondLeaves(getItemAt(playerX + dx, playerY + dy)));
-		} else {
-			setItemAt(playerX, playerY, originalCharWhenManLeaves(getItemAt(playerX, playerY)));
-		}
-		return true;
+		return getCounter(CHAR_DIAMOND_ON_FLOOR) == 0;
 	}
 
 	public void restart() {
-		while (undos.length() > 0) {
-			performUndo();
+		while (moves.length() > 0) {
+			tryUndo();
 		}
 	}
 
-	public char setItemAt(int x, int y, char value) {
-		return map[x][y] = value;
-	}
-
-	/** Return whether something was changed. */
-	public boolean tryMove(char move) {
+	/** Return the number of moves actually performed. */
+	public int tryMove(char move) {
 		return tryMove(move, 1, true, true);
 	}
 
-	/** Return whether something was changed. */
-	private boolean tryMove(char move, int steps, boolean allowPushes, boolean reallyDo) {
-		getPlayerPosition(this, playerPosition);
-		return tryMove(move, steps, playerPosition[0], playerPosition[1], allowPushes, reallyDo);
+	/** Return the number of moves actually performed. */
+	private int tryMove(char move, int steps, boolean allowPushes, boolean reallyDo) {
+		return tryMove(move, steps, getPlayerX(), getPlayerY(), allowPushes, reallyDo);
 	}
 
-	/** Return whether something was changed. */
-	private boolean tryMove(char move, int steps, int playerX, int playerY, boolean allowPushes, boolean reallyDo) {
+	/** Return the number of moves actually performed. */
+	private int tryMove(char move, int steps, int playerX, int playerY, boolean allowPushes, boolean reallyDo) {
 		int[] direction = directionFor(move, DIRECTIONS_CHAR_POS);
 		if (direction == null) {
-			return false;
+			return 0;
 		}
 		int dx = direction[0], dy = direction[1];
-		boolean somethingChanged = false;
 
 		for (int i = 0; i < steps; i++) {
+			// if moving multiple steps at once, stop if an intermediate step may finish the game:
+			if (isDone()) {
+				return i;
+			}
 			int newX = playerX + dx;
 			int newY = playerY + dy;
 
@@ -353,9 +281,9 @@ public class SokobanGameState implements SokobanMap, Serializable {
 			case CHAR_DIAMOND_ON_FLOOR:
 				// pushing away diamond on floor
 			case CHAR_DIAMOND_ON_TARGET:
-				// hal:
 				if (! allowPushes) {
-					return false;
+					ok = false;
+					break;
 				}
 				// pushing away diamond on target
 				char pushTo = getItemAt(newX + dx, newY + dy);
@@ -367,39 +295,30 @@ public class SokobanGameState implements SokobanMap, Serializable {
 				break;
 			}
 
-			if (ok) {
-				// hal:
-				if (! reallyDo) {
-					return true;
-				}
-				if (undos.length() > 32000) {
-					// size of undo: 9 bytes + object overhead = 25?
-					// reuse and clear undo object
-					undos.setLength(0);
-				}
-				undos.append(move);
-				somethingChanged = true;
-
-				if (Character.isUpperCase(move)) {
-					byte pushedX = (byte) (newX + dx);
-					byte pushedY = (byte) (newY + dy);
-					setItemAt(pushedX, pushedY, newCharWhenDiamondEnters(getItemAt(pushedX, pushedY)));
-				}
-				setItemAt(playerX, playerY, originalCharWhenManLeaves(getItemAt(playerX, playerY)));
-				setItemAt(newX, newY, newCharWhenManEnters(getItemAt(newX, newY)));
-
-				playerX = newX;
-				playerY = newY;
-				if (isDone()) {
-					// if moving multiple steps at once, stop if an intermediate step may finish the game:
-					return true;
-				}
+			if (! ok) {
+				return i;
 			}
+			if (! reallyDo) {
+				return i + 1;
+			}
+			moves.append(move);
+
+			if (Character.isUpperCase(move)) {
+				byte pushedX = (byte) (newX + dx);
+				byte pushedY = (byte) (newY + dy);
+				setItemAt(pushedX, pushedY, newCharWhenDiamondEnters(getItemAt(pushedX, pushedY)));
+			}
+			setItemAt(playerX, playerY, originalCharWhenManLeaves(getItemAt(playerX, playerY)));
+			setItemAt(newX, newY, newCharWhenManEnters(getItemAt(newX, newY)));
+
+			playerX = newX;
+			playerY = newY;
 		}
-		return somethingChanged;
+		return steps;
 	}
-	/** Return whether something was changed. */
-	public boolean tryMove(int dx, int dy) {
+
+	/** Return the number of moves actually performed. */
+	public int tryMove(int dx, int dy) {
 		int steps = 0;
 		if (dx != 0) {
 			steps = Math.abs(dx);
@@ -410,8 +329,32 @@ public class SokobanGameState implements SokobanMap, Serializable {
 		}
 		char move = moveFor(dx, dy);
 		if (move == '\0' || steps == 0) {
-			return false;
+			return 0;
 		}
 		return tryMove(move, steps, true, true);
+	}
+
+	public boolean tryUndo() {
+		if (moves.length() == 0)
+			return false;
+		int pos = moves.length() - 1;
+		char move = moves.charAt(pos);
+		moves.setLength(pos);
+		int[] direction = directionFor(Character.toLowerCase(move), DIRECTIONS_CHAR_POS);
+		if (direction == null) {
+			return false;
+		}
+
+		int dx = direction[0], dy = direction[1];
+		int playerX = getPlayerX(), playerY = getPlayerY();
+
+		setItemAt(playerX - dx, playerY - dy, newCharWhenManEnters(getItemAt(playerX - dx, playerY - dy)));
+		if (Character.isUpperCase(move)) {
+			setItemAt(playerX, playerY, newCharWhenDiamondEnters(getItemAt(playerX, playerY)));
+			setItemAt(playerX + dx, playerY + dy, originalCharWhenDiamondLeaves(getItemAt(playerX + dx, playerY + dy)));
+		} else {
+			setItemAt(playerX, playerY, originalCharWhenManLeaves(getItemAt(playerX, playerY)));
+		}
+		return true;
 	}
 }

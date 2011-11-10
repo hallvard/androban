@@ -1,4 +1,4 @@
-package com.mobilepearls.sokoban;
+package com.mobilepearls.sokoban.core;
 
 public interface SokobanMap {
 
@@ -15,5 +15,6 @@ public interface SokobanMap {
 
 	public int getHeight();
 	public char getItemAt(int x, int y);
+	public CharSequence getMoves();
 	public int getWidth();
 }
