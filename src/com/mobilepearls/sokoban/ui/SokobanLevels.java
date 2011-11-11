@@ -1,25 +1,98 @@
 package com.mobilepearls.sokoban.ui;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipInputStream;
 
+import android.app.ProgressDialog;
 import android.content.Context;
+import android.os.AsyncTask;
+import android.os.Environment;
 
 import com.mobilepearls.sokoban.io.Level;
 import com.mobilepearls.sokoban.io.LevelIterator;
 
 public class SokobanLevels {
 
+	class ReadLevelsTask extends AsyncTask<Context, String, Exception> {
+
+		@Override
+		protected Exception doInBackground(Context... params) {
+
+			InputStream input = null;
+			ZipInputStream zipInput = null;
+			try {
+				input = getUserLevelsInputStream(params[0]);
+			} catch (Exception e1) {
+				try {
+					publishProgress("Opening " + location);
+					input = (location.indexOf(':') > 2 ? new URL(location).openStream() : params[0].getAssets().open(location));
+				} catch (Exception e2) {
+					return e2;
+				}
+				if (location.endsWith(".zip")) {
+					zipInput = new ZipInputStream(input);
+				}
+			}
+			LevelIterator it = new LevelIterator(input, zipInput);
+			int count = 0;
+			publishProgress("Reading level " + (count + 1) + " of " + levelCount);
+			while (it.hasNext()) {
+				Level level = new Level(it.next());
+				count++;
+				try {
+					InputStream levelInput = getUserLevelInputStream(level, count, params[0]);
+					level.read(new BufferedReader(new InputStreamReader(levelInput)));
+				} catch (Exception e) {
+					// ignore
+				}
+				if (levels == null) {
+					levels = new ArrayList<Level>();
+				}
+				levels.add(level);
+				publishProgress("+Reading level " + (count + 1) + " of " + levelCount);
+			}
+			if (levels != null) {
+				OutputStreamWriter writer = null;
+				try {
+					OutputStream outputStream = getUserLevelsOutputStream(params[0]);
+					if (outputStream != null) {
+						writer = new OutputStreamWriter(outputStream);
+						for (int i = 0; i < levels.size(); i++) {
+							Level level = levels.get(i);
+							level.write(writer, true);
+							writer.write('\n');
+						}
+					}
+				} catch (Exception e) {
+					//				System.err.println("Exception when writing " + name + " levels: " + e);
+				} finally {
+					if (writer != null) {
+						try {
+							writer.close();
+						} catch (IOException e1) {
+							// ignore
+						}
+					}
+				}
+			}
+			return null;
+		}
+	}
+
 	private static final List<SokobanLevels> levelMaps = new ArrayList<SokobanLevels>();
+
+	private final static boolean useExternalStorage = true;
 
 	static {
 		levelMaps.add(new SokobanLevels("microban", "Microban (easy)", 155, "microban.sok"));
@@ -27,11 +100,11 @@ public class SokobanLevels {
 		levelMaps.add(new SokobanLevels("mas_sasquatch", "Mas Sasquatch", 50, "mas_sasquatch.sok"));
 		levelMaps.add(new SokobanLevels("sasquatch_iii", "Sasquatch III", 50, "sasquatch_iii.sok"));
 		levelMaps.add(new SokobanLevels("sasquatch_iv", "Sasquatch IV", 49, "sasquatch_iv.sok"));
-
 		levelMaps.add(new SokobanLevels("bernier", "Initial Trouble", 12, "http://sokobano.de/sets/bernier.zip"));
 		levelMaps.add(new SokobanLevels("minicosmos", "Minicosmos", 40, "http://sokobano.de/sets/minicosmos.zip"));
 		levelMaps.add(new SokobanLevels("microcosmos", "Microcosmos", 40, "http://sokobano.de/sets/microcosmos.zip"));
 		levelMaps.add(new SokobanLevels("nabokosmos", "Nabokosmos", 40, "http://sokobano.de/sets/nabokosmos.zip"));
+		levelMaps.add(new SokobanLevels("picokosmos", "Picokosmos", 20, "http://sokobano.de/sets/picokosmos.zip"));
 		levelMaps.add(new SokobanLevels("cosmopoly", "Cosmopoly", 22, "http://sokobano.de/sets/cosmopoly.zip"));
 		levelMaps.add(new SokobanLevels("cosmonotes", "Cosmonotes", 20, "http://sokobano.de/sets/cosmonotes.zip"));
 		levelMaps.add(new SokobanLevels("loma", "LOMA", 100, "http://sokobano.de/sets/loma.zip"));
@@ -196,8 +269,8 @@ public class SokobanLevels {
 	}
 
 	private final String label;
-
 	private int levelCount = -1;
+
 	private List<Level> levels = null;
 
 	private final String location;
@@ -213,6 +286,18 @@ public class SokobanLevels {
 		this.name = name;
 		this.label = label;
 		this.location = location;
+	}
+
+	private File getExternalFileName(String fileName, String extraState, Boolean exists) {
+		String state = Environment.getExternalStorageState();
+		if (Environment.MEDIA_MOUNTED.equals(state) || (extraState != null && extraState.equals(state))) {
+			File root = Environment.getExternalStorageDirectory();
+			File file = new File(root + getSokobanLevelDirectoryName() + "/" + fileName);
+			if (exists == null || exists.equals(file.exists())) {
+				return file;
+			}
+		}
+		return null;
 	}
 
 	public int getIndexOfLastRemainingLevel(boolean useDiamondsCheck, boolean useMovesCheck) {
@@ -243,72 +328,108 @@ public class SokobanLevels {
 		return (levels != null && i < levels.size() ? levels.get(i) : null);
 	}
 
-	public Level getLevel(int i, Context context) {
-		if (levels == null) {
-			readLevels(context);
-		}
-		return (i < levels.size() ? levels.get(i) : null);
-	}
-
 	public int getLevelCount() {
 		return (levels != null ? levels.size() : levelCount);
 	}
+
+	//
 
 	public int getLevelIndex(Level level) {
 		return (levels != null ? levels.indexOf(level) : -1);
 	}
 
-	//
-
 	public String getName() {
 		return name;
 	}
 
-	public String getSokobanLevelFileName(Level level, int count) {
-		return getName() + "_" + count + ".sok";
+	private String getSokobanLevelDirectoryName() {
+		return "/Android/data/com.mobilepearls.sokoban/files/" + name;
 	}
 
-	public Exception readLevels(Context context) {
-		InputStream input = null;
-		try {
-			input = context.openFileInput(name + ".sok");
-		} catch (Exception e1) {
-			try {
-				input = (location.indexOf(':') > 2 ? new URL(location).openStream() : context.getAssets().open(location));
-			} catch (Exception e2) {
-				return e2;
+	private String getSokobanLevelFileName(Level level, int count) {
+		return level.getName() + "_" + count + ".sok";
+	}
+
+
+	private InputStream getUserLevelInputStream(Level level, int count, Context context) throws Exception {
+		String fileName = getSokobanLevelFileName(level, count);
+		if (useExternalStorage) {
+			File file = getExternalFileName(fileName, Environment.MEDIA_MOUNTED_READ_ONLY, true);
+			if (file != null) {
+				return new FileInputStream(file);
 			}
 		}
-		ZipInputStream zipInput = null;
-		if (location.endsWith(".zip")) {
-			zipInput = new ZipInputStream(input);
-		}
-		LevelIterator it = new LevelIterator(input, zipInput);
-		int count = 0;
-		while (it.hasNext()) {
-			Level level = new Level(it.next());
-			count++;
-			try {
-				FileInputStream fileInput = context.openFileInput(getSokobanLevelFileName(level, count));
-				level.read(new BufferedReader(new InputStreamReader(fileInput)));
-			} catch (IOException e) {
-				// ignore
+		return context.openFileInput(fileName);
+	}
+
+	private OutputStream getUserLevelOutputStream(Level level, int count, Context context) throws Exception {
+		String fileName = getSokobanLevelFileName(level, count);
+		if (useExternalStorage) {
+			File file = getExternalFileName(fileName, null, false);
+			if (file != null) {
+				return new FileOutputStream(file);
 			}
-			if (levels == null) {
-				levels = new ArrayList<Level>();
-			}
-			levels.add(level);
 		}
-		return null;
+		return context.openFileOutput(getSokobanLevelFileName(level, count), Context.MODE_PRIVATE);
+	}
+
+	private InputStream getUserLevelsInputStream(Context context) throws Exception {
+		if (useExternalStorage) {
+			File file = getExternalFileName(name + ".sok", Environment.MEDIA_MOUNTED_READ_ONLY, true);
+			if (file != null) {
+				return new FileInputStream(file);
+			}
+		}
+		return context.openFileInput(name + ".sok");
+	}
+
+	private OutputStream getUserLevelsOutputStream(Context context) throws Exception {
+		if (useExternalStorage) {
+			File file = getExternalFileName(name + ".sok", null, false);
+			if (file != null) {
+				return new FileOutputStream(file, false);
+			}
+		}
+		return context.openFileOutput(name + ".sok", Context.MODE_WORLD_READABLE);
+	}
+
+	public void readLevels(Context context, final ProgressDialog progress) {
+		new ReadLevelsTask() {
+			@Override
+			protected void onPostExecute(Exception result) {
+				if (result != null) {
+					progress.setMessage(result.getMessage());
+				} else {
+					progress.dismiss();
+				}
+			}
+			@Override
+			protected void onPreExecute() {
+				progress.setTitle(getLabel());
+				progress.setIndeterminate(false);
+				progress.setMax(getLevelCount());
+				progress.show();
+			}
+			@Override
+			protected void onProgressUpdate(String... messages) {
+				String message = messages[0];
+				System.err.println(message);
+				if (message.startsWith("+")) {
+					progress.incrementProgressBy(1);
+					message = message.substring(1);
+				}
+				progress.setMessage(message);
+			}
+		}.execute(context);
 	}
 
 	public void writeLevel(Level level, Context context) {
 		int count = levels.indexOf(level) + 1;
 		if (count > 0) {
 			try {
-				FileOutputStream output = context.openFileOutput(getSokobanLevelFileName(level, count), Context.MODE_PRIVATE);
+				OutputStream output = getUserLevelOutputStream(level, count, context);
 				level.write(new OutputStreamWriter(output), false);
-			} catch (IOException e) {
+			} catch (Exception e) {
 				// ignore
 			}
 		}

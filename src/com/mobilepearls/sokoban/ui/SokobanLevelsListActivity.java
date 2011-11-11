@@ -1,6 +1,7 @@
 package com.mobilepearls.sokoban.ui;
 
 import android.app.ListActivity;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
@@ -40,9 +41,25 @@ public class SokobanLevelsListActivity extends ListActivity {
 		//			intent.setClass(this, SokobanGameActivity.class);
 		//			startActivity(intent);
 		//		} else {
-		Intent intent = SokobanGameActivity.createSokobanLevelIntent(sokobanLevels, -1);
-		intent.setClass(this, SokobanLevelsActivity.class);
-		startActivity(intent);
-		//		}
+		final ProgressDialog progress = new ProgressDialog(this) {
+			@Override
+			protected void onStop() {
+				super.onStop();
+				startSokobanLevelsActivity(sokobanLevels);
+			}
+		};
+		if (sokobanLevels.getLevelCount() > 0 && sokobanLevels.getLevel(0) == null) {
+			sokobanLevels.readLevels(this, progress);
+		} else {
+			startSokobanLevelsActivity(sokobanLevels);
+		}
+	}
+
+	private void startSokobanLevelsActivity(SokobanLevels sokobanLevels) {
+		if (sokobanLevels != null && sokobanLevels.getLevelCount() > 0 && sokobanLevels.getLevel(0) != null) {
+			Intent intent = SokobanGameActivity.createSokobanLevelIntent(sokobanLevels, -1);
+			intent.setClass(SokobanLevelsListActivity.this, SokobanLevelsActivity.class);
+			startActivity(intent);
+		}
 	}
 }

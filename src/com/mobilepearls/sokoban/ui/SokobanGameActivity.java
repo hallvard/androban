@@ -11,9 +11,6 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 
 import com.mobilepearls.sokoban.R;
-import com.mobilepearls.sokoban.R.id;
-import com.mobilepearls.sokoban.R.layout;
-import com.mobilepearls.sokoban.R.menu;
 import com.mobilepearls.sokoban.core.SokobanGameState;
 import com.mobilepearls.sokoban.core.SokobanMap;
 import com.mobilepearls.sokoban.io.Level;
@@ -97,7 +94,7 @@ public class SokobanGameActivity extends Activity {
 			}
 		}
 		sokobanLevels = SokobanLevels.getSokobanLevels(levelSet);
-		currentLevel = sokobanLevels.getLevel(levelIndex, this);
+		currentLevel = sokobanLevels.getLevel(levelIndex);
 		if (gameState == null) {
 			gameState = new SokobanGameState(currentLevel);
 		}

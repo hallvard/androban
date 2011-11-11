@@ -14,8 +14,6 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import com.mobilepearls.sokoban.R;
-import com.mobilepearls.sokoban.R.id;
-import com.mobilepearls.sokoban.R.layout;
 import com.mobilepearls.sokoban.core.SokobanGameState;
 import com.mobilepearls.sokoban.io.Level;
 
@@ -103,12 +101,6 @@ public class SokobanLevelsActivity extends ListActivity {
 		}
 		SokobanLevels sokobanLevels = SokobanLevels.getSokobanLevels(levelSet);
 		try {
-			if (sokobanLevels.getLevelCount() == 0 || sokobanLevels.getLevel(0) == null) {
-				Exception e = sokobanLevels.readLevels(this);
-				if (e != null) {
-					throw e;
-				}
-			}
 			//			SharedPreferences prefs = getSharedPreferences(SokobanLevelsListActivity.SHARED_PREFS_NAME, MODE_PRIVATE);
 			//			final String maxLevelNamePref = SokobanLevelsListActivity.getMaxLevelPrefName(sokobanLevels);
 			int maxLevel = sokobanLevels.getIndexOfLastRemainingLevel(true, true);
